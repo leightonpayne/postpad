@@ -8,6 +8,9 @@ Authors@R:
 Description: Post-processing tools for exploring PADLOC results.
 License: MIT + file LICENSE
 Imports: 
+    cli,
+    dplyr,
+    fs,
     purrr,
     readr,
     stringr
@@ -20,3 +23,6 @@ Collate:
     'utils.R'
     'read-padlocout.R'
     'sandbox.R'
+    'setup.R'
+Suggests: 
+    getopt

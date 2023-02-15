@@ -1,5 +1,8 @@
 #!/usr/bin/env Rscript
 
+library(cli)
+library(getopt)
+
 # set spec
 spec <- matrix(c(
   'input'  , 'i', 1, "character", "input",
