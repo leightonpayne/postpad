@@ -5,7 +5,7 @@ library(getopt)
 
 # set spec
 spec <- matrix(c(
-  'input'  , 'i', 1, "character", "input",
+  'input'  , 'i', 1, "character", "input"
 ), byrow = TRUE, ncol = 5)
 
 # process options
