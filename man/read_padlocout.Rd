@@ -11,7 +11,7 @@ read_padlocout(path)
 PADLOC ending in '*_padloc.csv').}
 }
 \value{
-A [tibble::tibble()] holding the contents of the PADLOC output file.
+A [tibble::tibble()].
 }
 \description{
 Read PADLOC output files
