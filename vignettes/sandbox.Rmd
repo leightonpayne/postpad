@@ -1,0 +1,31 @@
+---
+title: "sandbox"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sandbox}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options:
+  chunk_output_type: console
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+```{r setup}
+library(postpad)
+```
+
+```{r}
+path_padloc_output <- "~/sync/personal/projects/postpad_test_data/output/00/00/"
+padlocout_list <- multi_read_padlocout(path_padloc_output)
+```
+
+```{r}
+padlocout_master <- combine_padlocout(padlocout_list)
+```

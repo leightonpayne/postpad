@@ -25,4 +25,7 @@ Collate:
     'sandbox.R'
     'setup.R'
 Suggests: 
-    getopt
+    getopt,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

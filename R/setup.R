@@ -5,10 +5,10 @@
 #' @return A [base::character()].
 #' @export
 postpad_script <- function(file = NULL) {
-  package_path <- fs::path_package("padlocdev")
-  exec_path <- fs::path_join(c(package_path, "exec"))
+  package_path <- fs::path_package("postpad")
+  exec_path <- fs::path_abs(fs::path_join(c(package_path, "../exec")))
   if (is.null(file)) {
-    fs::dir_ls(exec_path)
+    fs::path_file(fs::dir_ls(exec_path))
   } else {
     file_path <- fs::path_join(c(package_path, "exec", file))
     file_exists <- fs::file_exists(file_path)
@@ -19,3 +19,22 @@ postpad_script <- function(file = NULL) {
     }
   }
 }
+
+instructions <- function(){
+  options(cli.width = 80)
+  package_path <- fs::path_package("postpad")
+  exec_path <- fs::path_abs(fs::path_join(c(package_path, "../exec")))
+  bash_config <- c(".profile", ".bashrc", ".bash_profile")
+  scripts <- postpad_script()
+  cli::cli_par()
+  cli::cli_alert_info('Add the following line to one of your bash config files ({.file {bash_config}}) to make {.pkg {{postpad}}} scripts available from your $PATH:', wrap = TRUE)
+  cli::cli_end()
+  cli::cli_par()
+  cli::cli_alert('export PATH=$PATH:"{exec_path}"')
+  cli::cli_end()
+  cli::cli_par()
+  cli::cli_alert_info('Available scripts include: {.file {scripts}}', wrap = TRUE)
+  cli::cli_end()
+}
+
+

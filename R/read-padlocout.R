@@ -74,4 +74,18 @@ multi_read <- function(path = ".", func, pattern = NULL) {
   file_content
 }
 
+#' Read multiple PADLOC output files
+#' @param path A character vector of full path names; the default corresponds
+#' to the working directory, [getwd()]. Tilde expansion (see [path.expand]) is
+#' performed. Missing values will be ignored. Elements with a marked encoding
+#' will be converted to the native encoding (and if that fails, considered
+#' non-existent).
+#' @return A [list()], where each element is a [tibble::tibble()] holding
+#' the contents of the file.
+#' @export
+multi_read_padlocout <- function(path) {
+  out <- multi_read(path = path, func = read_padlocout, pattern = "*_padloc.csv")
+  out
+}
+
 
