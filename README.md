@@ -47,9 +47,9 @@ Rscript -e 'remotes::install_github("leightonpayne/postpad")'
 
 `remotes` will also install all dependencies into the user library. One
 of the dependencies it tries to install is `stringi`, which fails
-because `stringi` requires the (C/C++ library
-`ICU`)\[<https://icu.unicode.org/>\], which for some reason is either
-not installed or not accessible. This is annoying because every time
+because `stringi` requires the [C/C++ library
+`ICU`](https://icu.unicode.org/), which for some reason is either not
+installed or not accessible. This is annoying because every time
 `postpad` is updated with
 `remotes::install_github("leightonpayne/postpad")`, it will try to build
 and install `stringi`, which takes a couple of minutes to fail.
@@ -57,7 +57,7 @@ and install `stringi`, which takes a couple of minutes to fail.
 installed as part of the `R` module (at least the latest version
 `R/4.2.1-gimkl-2022a`).** So you can choose to just ignore this error
 every time you update `postpad`. Alternatively, you can force `stringi`
-to use the `ICU4C 69.1` library that is conveniently (shipped with the
-package)\[<https://stringi.gagolewski.com/install.html>\], by installing
+to use the `ICU4C 69.1` library that is conveniently [shipped with the
+package](https://stringi.gagolewski.com/install.html), by installing
 stringi with the command:
 `install.packages("stringi", configure.args="--disable-pkg-config")`.
