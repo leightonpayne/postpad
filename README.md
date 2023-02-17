@@ -21,7 +21,7 @@ devtools::install_github("leightonpayne/postpad")
 First, activate the latest `R` module:
 
 ``` bash
-module R
+module load R
 ```
 
 The package `devtools` can’t be installed on NeSI for some reason, so
