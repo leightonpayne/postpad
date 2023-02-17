@@ -19,6 +19,8 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(postpad)
+library(magrittr)
+library(gggenes)
 ```
 
 ```{r}
@@ -28,4 +30,26 @@ padlocout_list <- multi_read_padlocout(path_padloc_output)
 
 ```{r}
 padlocout_master <- combine_padlocout(padlocout_list)
+```
+
+```{r}
+a <- dplyr::group_by(padlocout_master, genome.accession, seqid, relative.position) %>% 
+  dplyr::filter(grepl("lamassu", system, ignore.case = TRUE))
+b <- dplyr::mutate(a, overlapping_systems = paste0(unique(system), collapse = "__"))
+c <- dplyr::ungroup(b)
+
+d <- c %>% 
+  dplyr::filter(grepl("lamassu", overlapping_systems, ignore.case = TRUE)) %>%
+  dplyr::group_by(overlapping_systems) %>%
+  dplyr::summarise(n = dplyr::n()) %>%
+  dplyr::arrange(desc(n))
+```
+
+```{r}
+tmp <- padlocout_master %>% dplyr::filter(system == "lamassu_type_II")
+
+```
+
+```{r}
+
 ```

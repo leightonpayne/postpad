@@ -6,7 +6,7 @@
 #' @export
 postpad_script <- function(file = NULL) {
   package_path <- fs::path_package("postpad")
-  exec_path <- fs::path_abs(fs::path_join(c(package_path, "../exec")))
+  exec_path <- fs::path_abs(fs::path_join(c(package_path, "exec")))
   if (is.null(file)) {
     fs::path_file(fs::dir_ls(exec_path))
   } else {
@@ -20,10 +20,11 @@ postpad_script <- function(file = NULL) {
   }
 }
 
+#' @export
 instructions <- function(){
   options(cli.width = 80)
   package_path <- fs::path_package("postpad")
-  exec_path <- fs::path_abs(fs::path_join(c(package_path, "../exec")))
+  exec_path <- fs::path_abs(fs::path_join(c(package_path, "exec")))
   bash_config <- c(".profile", ".bashrc", ".bash_profile")
   scripts <- postpad_script()
   cli::cli_par()

@@ -58,17 +58,18 @@ read_padlocout_master <- function(path) {
 #' performed. Missing values will be ignored. Elements with a marked encoding
 #' will be converted to the native encoding (and if that fails, considered
 #' non-existent).
+#' @param func A function to use for reading.
 #' @param pattern An optional regular expression. Only file names which match
 #' the regular expression will be returned.
-#' @param func A function to use for reading.
+#' @param name The name of the progress bar to display.
 #' @return A [list()], where each element is a [tibble::tibble()] holding
 #' the contents of the file.
 #' @export
-multi_read <- function(path = ".", func, pattern = NULL) {
+multi_read <- function(path = ".", func, pattern = NULL, name) {
   func <- substitute(func)
   file_paths <- list.files(path, full.names = TRUE, pattern = pattern)
   # file_content <- purrr::map(.x = file_paths, .f = function(x) eval(func)(x))
-  file_content <- purrr::map(.x = cli::cli_progress_along(file_paths), .f = function(i) eval(func)(file_paths[i]))
+  file_content <- purrr::map(.x = cli::cli_progress_along(file_paths, name = name), .f = function(i) eval(func)(file_paths[i]))
   file_names <- basename(file_paths)
   names(file_content) <- file_names
   file_content
@@ -84,7 +85,7 @@ multi_read <- function(path = ".", func, pattern = NULL) {
 #' the contents of the file.
 #' @export
 multi_read_padlocout <- function(path) {
-  out <- multi_read(path = path, func = read_padlocout, pattern = "*_padloc.csv")
+  out <- multi_read(path = path, func = read_padlocout, pattern = "*_padloc.csv", name = "Reading PADLOC output files")
   out
 }
 

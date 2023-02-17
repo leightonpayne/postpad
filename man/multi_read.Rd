@@ -4,7 +4,7 @@
 \alias{multi_read}
 \title{Read multiple files}
 \usage{
-multi_read(path = ".", func, pattern = NULL)
+multi_read(path = ".", func, pattern = NULL, name)
 }
 \arguments{
 \item{path}{A character vector of full path names; the default corresponds
@@ -17,6 +17,8 @@ non-existent).}
 
 \item{pattern}{An optional regular expression. Only file names which match
 the regular expression will be returned.}
+
+\item{name}{The name of the progress bar to display.}
 }
 \value{
 A [list()], where each element is a [tibble::tibble()] holding
