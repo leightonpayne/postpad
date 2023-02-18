@@ -20,20 +20,24 @@ postpad_script <- function(file = NULL) {
   }
 }
 
+#' @title Print instructions for setting up [postpad].
+#' @return NULL
 #' @export
 instructions <- function(){
-  options(cli.width = 80)
   package_path <- fs::path_package("postpad")
   exec_path <- fs::path_abs(fs::path_join(c(package_path, "exec")))
-  bash_config <- c(".profile", ".bashrc", ".bash_profile")
   scripts <- postpad_script()
   cli::cli_par()
-  cli::cli_alert_info('Add the following line to one of your bash config files ({.file {bash_config}}) to make {.pkg {{postpad}}} scripts available from your $PATH:', wrap = TRUE)
+  cli::cli_h1(cli::col_cyan("Setup Instructions"))
   cli::cli_end()
   cli::cli_par()
-  cli::cli_alert('export PATH=$PATH:"{exec_path}"')
+  cli::cli_alert_warning('Run the following line in your terminal, or add it to one of your bash config files to make {.pkg postpad} scripts available from your $PATH.', wrap = TRUE)
   cli::cli_end()
   cli::cli_par()
+  cli::cli_text('{.emph export} PATH=$PATH:"{exec_path}"')
+  cli::cli_end()
+  cli::cli_par()
+  cli::cli_alert_info('All scripts have usage information that can be viewed with {.kbd <script-name.R> --help}.', wrap = TRUE)
   cli::cli_alert_info('Available scripts include: {.file {scripts}}', wrap = TRUE)
   cli::cli_end()
 }

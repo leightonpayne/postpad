@@ -5,17 +5,22 @@
 #' which is derived from the names of the padlocout tables in `padlocout_list`.
 #' @export
 combine_padlocout <- function(padlocout_list) {
-  extra_col <- purrr::map(
+  to_combine <- purrr::map(
     .x = cli::cli_progress_along(padlocout_list, name = "Combining PADLOC output"),
     .f = function(i) {
-      file_name <- names(padlocout_list[i])
-      genome_accession <- stringr::str_remove(file_name, "_protein_padloc.csv")
-      x <- dplyr::mutate(padlocout_list[[i]], "genome.accession" = genome_accession)
-      x <- dplyr::select(x, "genome.accession", dplyr::everything())
-      x
+      # Check if there's a column for genome accession, and if not make one
+      if (! "genome.accession" %in% names(padlocout_list[[i]])) {
+        file_name <- names(padlocout_list[i])
+        genome_accession <- stringr::str_remove(file_name, "_protein_padloc.csv")
+        x <- dplyr::mutate(padlocout_list[[i]], "genome.accession" = genome_accession)
+        x <- dplyr::select(x, "genome.accession", dplyr::everything())
+        x
+      } else {
+        padlocout_list[[i]]
+      }
     }
   )
-  combined <- dplyr::bind_rows(extra_col)
+  combined <- dplyr::bind_rows(to_combine)
   combined
 }
 
@@ -33,3 +38,22 @@ summarise_system_count <- function(padlocout) {
   count <- dplyr::summarise(grouped, n = dplyr::n())
   count
 }
+
+filter_gff <- function() {
+  NULL
+}
+
+calculate_separation <- function(padlocout) {
+  a <- dplyr::group_by(padlocout, seqid, system, system.number)
+  b <- dplyr::mutate(a, max = max(relative.position), min = min(relative.position), genes = dplyr::n())
+  c <- dplyr::mutate(b, separation = max + 1 - min - genes)
+  d <- dplyr::select(c, -c(max, min, genes))
+  d
+}
+
+assign_position <- function(gff) {
+  gff_arranged <- dplyr::arrange(gff, seqid, start)
+  gff_grouped <- dplyr::group_by(gff_arranged, seqid, type)
+  out <- dplyr::mutate(gff_grouped, relative.position = dplyr::row_number())
+}
+

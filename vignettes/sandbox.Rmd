@@ -24,22 +24,17 @@ library(gggenes)
 ```
 
 ```{r}
-path_padloc_output <- "~/sync/personal/projects/postpad_test_data/output/00/00/"
-padlocout_list <- multi_read_padlocout(path_padloc_output)
+path_master_padlocout <- "/Volumes/SSD-01/02_working/sys_in_sys_final_analyses/data/master_padloc.csv"
+master_padlocout <- read_padlocout_master(path_master_padlocout)
 ```
 
 ```{r}
-padlocout_master <- combine_padlocout(padlocout_list)
-```
-
-```{r}
-a <- dplyr::group_by(padlocout_master, genome.accession, seqid, relative.position) %>% 
+a <- dplyr::group_by(master_padlocout, genome.accession, seqid, relative.position) %>% 
   dplyr::filter(grepl("lamassu", system, ignore.case = TRUE))
 b <- dplyr::mutate(a, overlapping_systems = paste0(unique(system), collapse = "__"))
 c <- dplyr::ungroup(b)
 
 d <- c %>% 
-  dplyr::filter(grepl("lamassu", overlapping_systems, ignore.case = TRUE)) %>%
   dplyr::group_by(overlapping_systems) %>%
   dplyr::summarise(n = dplyr::n()) %>%
   dplyr::arrange(desc(n))
@@ -51,5 +46,19 @@ tmp <- padlocout_master %>% dplyr::filter(system == "lamassu_type_II")
 ```
 
 ```{r}
+aditi <- master_padlocout %>% dplyr::filter(system == "Aditi")
+padlocout <- aditi %>% dplyr::select(genome.accession, seqid, system, system.number, relative.position)
+separation <- calculate_separation(padlocout)
+dplyr::filter(separation, separation > 0) %>%
+  dplyr::arrange(desc(separation)) %>%
+  dplyr::distinct(genome.accession, seqid, system, system.number, separation)
+```
+
+```{r}
+gff <- read_gff("/Volumes/SSD-01/02_working/sys_in_sys_final_analyses/data/GCF_016465845.1_ASM1646584v1_genomic.gff")
+gff_cds <- gff %>% dplyr::filter(type == "CDS")
+gff_cds_pos <- assign_postition(gff_cds)
+  
+dplyr::left_join(gff_cds, aditi, by = c("seqid", "start", "end"))
 
 ```

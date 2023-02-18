@@ -2,22 +2,22 @@
 NULL
 
 cols_padlocout <- readr::cols(
-  system.number      = readr::col_character(),
+  system.number      = readr::col_double(),
   seqid              = readr::col_character(),
   system             = readr::col_character(),
   target.name        = readr::col_character(),
   hmm.accession      = readr::col_character(),
   hmm.name           = readr::col_character(),
   protein.name       = readr::col_character(),
-  full.seq.E.value   = readr::col_character(),
-  domain.iE.value    = readr::col_character(),
-  target.coverage    = readr::col_character(),
-  hmm.coverage       = readr::col_character(),
-  start              = readr::col_character(),
-  end                = readr::col_character(),
+  full.seq.E.value   = readr::col_double(),
+  domain.iE.value    = readr::col_double(),
+  target.coverage    = readr::col_double(),
+  hmm.coverage       = readr::col_double(),
+  start              = readr::col_double(),
+  end                = readr::col_double(),
   strand             = readr::col_character(),
   target.description = readr::col_character(),
-  relative.position  = readr::col_character(),
+  relative.position  = readr::col_double(),
   contig.end         = readr::col_character(),
   all.domains        = readr::col_character(),
   best.hits          = readr::col_character()
@@ -89,4 +89,17 @@ multi_read_padlocout <- function(path) {
   out
 }
 
+#' Read multiple PADLOC master output files
+#' @param path A character vector of full path names; the default corresponds
+#' to the working directory, [getwd()]. Tilde expansion (see [path.expand]) is
+#' performed. Missing values will be ignored. Elements with a marked encoding
+#' will be converted to the native encoding (and if that fails, considered
+#' non-existent).
+#' @return A [list()], where each element is a [tibble::tibble()] holding
+#' the contents of the file.
+#' @export
+multi_read_padlocout_master <- function(path) {
+  out <- multi_read(path = path, func = read_padlocout_master, pattern = "*_padloc.csv", name = "Reading PADLOC output files")
+  out
+}
 

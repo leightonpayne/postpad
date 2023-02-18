@@ -22,8 +22,10 @@ BugReports: https://github.com/leightonpayne/postpad/issues
 Collate: 
     'utils.R'
     'read-padlocout.R'
+    'read_gff.R'
     'sandbox.R'
     'setup.R'
+    'zzz.R'
 Suggests: 
     checkmate,
     getopt,
