@@ -3,6 +3,7 @@
 export(combine_padlocout)
 export(instructions)
 export(multi_read)
+export(multi_read_gff)
 export(multi_read_padlocout)
 export(multi_read_padlocout_master)
 export(postpad_script)
