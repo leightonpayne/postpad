@@ -16,3 +16,18 @@ read_gff <- function(path) {
                          progress = FALSE, comment = "#")
   out
 }
+
+#' Read multiple GFF files
+#' @param path A character vector of full path names; the default corresponds
+#' to the working directory, [getwd()]. Tilde expansion (see [path.expand]) is
+#' performed. Missing values will be ignored. Elements with a marked encoding
+#' will be converted to the native encoding (and if that fails, considered
+#' non-existent).
+#' @return A [list()], where each element is a [tibble::tibble()] holding
+#' the contents of the file.
+#' @export
+multi_read_gff <- function(path) {
+  out <- multi_read(path = path, func = read_gff, pattern = "*_genomic.gff", name = "Reading GFF files")
+  out
+}
+

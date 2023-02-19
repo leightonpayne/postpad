@@ -47,7 +47,7 @@ tmp <- padlocout_master %>% dplyr::filter(system == "lamassu_type_II")
 
 ```{r}
 aditi <- master_padlocout %>% dplyr::filter(system == "Aditi")
-padlocout <- aditi %>% dplyr::select(genome.accession, seqid, system, system.number, relative.position)
+padlocout <- aditi
 separation <- calculate_separation(padlocout)
 dplyr::filter(separation, separation > 0) %>%
   dplyr::arrange(desc(separation)) %>%
@@ -57,8 +57,8 @@ dplyr::filter(separation, separation > 0) %>%
 ```{r}
 gff <- read_gff("/Volumes/SSD-01/02_working/sys_in_sys_final_analyses/data/GCF_016465845.1_ASM1646584v1_genomic.gff")
 gff_cds <- gff %>% dplyr::filter(type == "CDS")
-gff_cds_pos <- assign_postition(gff_cds)
-  
+gff_cds_pos <- assign_position(gff_cds)
+
 dplyr::left_join(gff_cds, aditi, by = c("seqid", "start", "end"))
 
 ```
