@@ -20,7 +20,7 @@ postpad_script <- function(file = NULL) {
   }
 }
 
-#' @title Print instructions for setting up [postpad].
+#' @title Print instructions for setting up `postpad`.
 #' @return NULL
 #' @export
 instructions <- function(){

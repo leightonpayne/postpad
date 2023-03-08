@@ -2,18 +2,18 @@
 % Please edit documentation in R/utils.R
 \name{cols_2c}
 \alias{cols_2c}
-\title{Combine two [readr::cols()] specifications}
+\title{Combine two \code{\link[readr:cols]{readr::cols()}} specifications}
 \usage{
 cols_2c(cols1, cols2)
 }
 \arguments{
-\item{cols1}{A [readr::cols()] object.}
+\item{cols1}{A \code{\link[readr:cols]{readr::cols()}} object.}
 
-\item{cols2}{A [readr::cols()] object.}
+\item{cols2}{A \code{\link[readr:cols]{readr::cols()}} object.}
 }
 \value{
-A [readr::cols()] object of cols1 and cols2 combined.
+A \code{\link[readr:cols]{readr::cols()}} object of cols1 and cols2 combined.
 }
 \description{
-Combine two [readr::cols()] specifications
+Combine two \code{\link[readr:cols]{readr::cols()}} specifications
 }

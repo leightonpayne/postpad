@@ -30,7 +30,7 @@ if (!collection$isEmpty()) {
 if (opt$recursive == TRUE) {
   padlocout_list <- postpad::multi_read_padlocout_master(opt$input)
 } else {
-  padlocout_list <- postpad::multi_read_padlocout(opt$input)
+  padlocout_list <- postpad::multi_read_padlocout(opt$input, namefix = "_protein_padloc.csv")
 }
-padlocout_combined <- postpad::combine_padlocout(padlocout_list)
+padlocout_combined <- postpad::padlocout_combine(padlocout_list)
 readr::write_csv(padlocout_combined, opt$output)

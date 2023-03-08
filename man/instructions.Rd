@@ -2,10 +2,10 @@
 % Please edit documentation in R/setup.R
 \name{instructions}
 \alias{instructions}
-\title{Print instructions for setting up [postpad].}
+\title{Print instructions for setting up \code{postpad}.}
 \usage{
 instructions()
 }
 \description{
-Print instructions for setting up [postpad].
+Print instructions for setting up \code{postpad}.
 }

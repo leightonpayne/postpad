@@ -11,20 +11,37 @@ Imports:
     cli,
     dplyr,
     fs,
+    furrr,
+    lifecycle,
+    progressr,
     purrr,
     readr,
-    stringr
+    rlang,
+    stringr,
+    tibble,
+    tidyr
 Encoding: UTF-8
 LazyData: true
+Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 URL: https://github.com/leightonpayne/postpad
 BugReports: https://github.com/leightonpayne/postpad/issues
 Collate: 
+    'build-loci.R'
+    'combine.R'
+    'gff-separate-attributes.R'
+    'legacy.R'
+    'loci-combine.R'
+    'postpad-package.R'
     'utils.R'
+    'read-gff.R'
+    'read-mmseqs.R'
     'read-padlocout.R'
-    'read_gff.R'
+    'read-seqkit.R'
     'sandbox.R'
+    'seq_extract.R'
     'setup.R'
+    'summarise-padlocout.R'
     'zzz.R'
 Suggests: 
     checkmate,

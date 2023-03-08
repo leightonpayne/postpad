@@ -17,48 +17,342 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
-library(postpad)
-library(magrittr)
-library(gggenes)
-```
-
 ```{r}
-path_master_padlocout <- "/Volumes/SSD-01/02_working/sys_in_sys_final_analyses/data/master_padloc.csv"
-master_padlocout <- read_padlocout_master(path_master_padlocout)
-```
-
-```{r}
-a <- dplyr::group_by(master_padlocout, genome.accession, seqid, relative.position) %>% 
-  dplyr::filter(grepl("lamassu", system, ignore.case = TRUE))
-b <- dplyr::mutate(a, overlapping_systems = paste0(unique(system), collapse = "__"))
-c <- dplyr::ungroup(b)
-
-d <- c %>% 
-  dplyr::group_by(overlapping_systems) %>%
-  dplyr::summarise(n = dplyr::n()) %>%
-  dplyr::arrange(desc(n))
-```
-
-```{r}
-tmp <- padlocout_master %>% dplyr::filter(system == "lamassu_type_II")
-
-```
-
-```{r}
-aditi <- master_padlocout %>% dplyr::filter(system == "Aditi")
-padlocout <- aditi
-separation <- calculate_separation(padlocout)
-dplyr::filter(separation, separation > 0) %>%
-  dplyr::arrange(desc(separation)) %>%
-  dplyr::distinct(genome.accession, seqid, system, system.number, separation)
-```
-
-```{r}
+padlocout <- master_padlocout %>% dplyr::filter(genome.accession == "GCF_016465845.1_ASM1646584v1")
 gff <- read_gff("/Volumes/SSD-01/02_working/sys_in_sys_final_analyses/data/GCF_016465845.1_ASM1646584v1_genomic.gff")
 gff_cds <- gff %>% dplyr::filter(type == "CDS")
 gff_cds_pos <- assign_position(gff_cds)
+gff_joined <- gff_join_padlocout(gff_cds_pos, padlocout)
+gff_joined_filtered <- gff_filter_locus(padlocout, gff_joined, 3)
+gff_joined_filtered
 
-dplyr::left_join(gff_cds, aditi, by = c("seqid", "start", "end"))
+
+gff_joined_filtered_separated <- purrr::map(
+  .x = gff_joined_filtered,
+  .f = function(x) {
+    out <- gff_separate_attributes(x, keep = "Name")
+    out
+  }
+)
 
 ```
+
+
+
+
+```{r}
+# seqext benchmark
+
+file <- "~/sync/personal/projects/padloc/test/GCF_001688665.2.faa"
+
+ids_0001 <- sample(ids, 1)
+ids_0010 <- sample(ids, 10)
+ids_0100 <- sample(ids, 100)
+ids_1000 <- sample(ids, 1000)
+
+microbenchmark::microbenchmark(ids_0001_out <- purrr::map(.x = ids_0001, .f = function(x) seqext(x, file)), times = 100)
+# Unit: milliseconds
+#       min       lq     mean   median       uq      max neval
+#  128.1251 129.8642 137.9504 132.3454 140.8534 184.6368   100
+microbenchmark::microbenchmark(ids_0010_out <- purrr::map(.x = ids_0010, .f = function(x) seqext(x, file)), times = 100)
+# Unit: seconds
+#       min       lq     mean   median      uq      max neval
+#  1.297341 1.322547 1.395876 1.349584 1.41204 2.173802   100
+microbenchmark::microbenchmark(ids_0100_out <- purrr::map(.x = ids_0100, .f = function(x) seqext(x, file)), times = 10)
+# Unit: seconds
+#       min       lq     mean  median       uq      max neval
+# 13.21945 13.25569 13.47494 13.4514 13.63052 13.95471     10
+microbenchmark::microbenchmark(ids_1000_out <- purrr::map(.x = ids_1000, .f = function(x) seqext(x, file)), times = 1)
+# Unit: seconds
+#       min       lq     mean   median       uq      max neval
+#  143.8383 143.8383 143.8383 143.8383 143.8383 143.8383     1
+```
+
+```{r}
+tmp <- master_padlocout %>% dplyr::filter(seqid == "NC_021658.1")
+
+isl <- master_padlocout %>% 
+  dplyr::group_by(genome.accession, seqid) %>%
+  dplyr::distinct(relative.position) %>% 
+  dplyr::arrange(relative.position) %>% 
+  dplyr::mutate(island = cumsum(c(1, abs(diff(relative.position)) > 5 + 1))) %>%
+  dplyr::group_by(island, .add = TRUE) %>%
+  dplyr::mutate(island.length = dplyr::n()) #%>%
+  dplyr::arrange(desc(island.length))
+```
+
+```{r}
+# Create master padlocout
+
+path <- "D:/payle484/"
+
+DRT_combined           <- read_padlocout_master(fs::path_join(c(path, "DRT_combined_padloc.csv")))
+HEC_combined           <- read_padlocout_master(fs::path_join(c(path, "HEC_combined_padloc.csv")))
+MG1_combined           <- read_padlocout_master(fs::path_join(c(path, "MG1_combined_padloc.csv")))
+new_combined           <- read_padlocout_master(fs::path_join(c(path, "new_combined_padloc.csv")))
+SG1_combined           <- read_padlocout_master(fs::path_join(c(path, "SG1_combined_padloc.csv")))
+SigPro_combined        <- read_padlocout_master(fs::path_join(c(path, "SigPro_combined_padloc.csv")))
+vassallo_2022_combined <- read_padlocout_master(fs::path_join(c(path, "vassallo_2022_combined_padloc.csv")))
+CRISPR_combined        <- read_padlocout_master(fs::path_join(c(path, "CRISPR_combined_padloc.csv")))
+DG1_combined           <- read_padlocout_master(fs::path_join(c(path, "DG1_combined_padloc.csv")))
+DMS_combined           <- read_padlocout_master(fs::path_join(c(path, "DMS_combined_padloc.csv")))
+
+padlocout_master <- dplyr::bind_rows(
+  DRT_combined,
+  HEC_combined,
+  MG1_combined,
+  new_combined,
+  SG1_combined,
+  SigPro_combined,
+  vassallo_2022_combined,
+  CRISPR_combined,
+  DG1_combined,
+  DMS_combined
+)
+
+padlocout_master_list <- padlocout_uncombine(padlocout_master)
+
+# readr::write_rds(padlocout_master, fs::path_join(c(path, "padlocout_master.rds")))
+# readr::write_rds(padlocout_master_list, fs::path_join(c(path, "padlocout_master_list.rds")))
+
+
+padlocout_master_index <- dplyr::left_join(padlocout_master, index, by = dplyr::join_by("genome.accession"))
+
+padlocout_master_index_00 <- padlocout_master_index %>% dplyr::filter(chunk == "00")
+
+padlocout_master_index_00_list <- padlocout_uncombine(padlocout_master_index_00)
+
+path_db <- "D:/payle484/refseq/"
+tmp <- purrr::map(
+  .x = padlocout_master_index_00_list,
+  .f = function(x) {
+    gff_path <- fs::path_join(c(path_db, unique(x$path_gff)))
+    gff <- read_gff(gff_path)
+    gff_cds <- dplyr::filter(gff, type == "CDS")
+    gff_cds_pos <- assign_position(gff_cds)
+    gff_joined <- gff_join_padlocout(gff_cds_pos, x)
+    gff_joined_filtered <- gff_filter_locus(x, gff_joined, 3)
+    gff_joined_filtered
+  }
+)
+
+
+
+padlocout_list <- padlocout_master_hma_list
+
+loci_hma <- purrr::map(
+  .x = cli::cli_progress_along(padlocout_list, name = "Finding loci"),
+  .f = function(i) {
+    gff_path <- fs::path_join(c(path_db, unique(padlocout_list[[i]]$path_gff)))
+    gff <- read_gff(gff_path)
+    gff_cds <- dplyr::filter(gff, type == "CDS")
+    gff_cds_pos <- assign_position(gff_cds)
+    gff_joined <- gff_join_padlocout(gff_cds_pos, padlocout_list[[i]])
+    gff_joined_filtered <- gff_filter_locus(padlocout_list[[i]], gff_joined, 3)
+    gff_joined_filtered
+  }
+)
+
+#### WORKING ####
+
+
+
+
+
+names(loci_hma) <- names(padlocout_master_hma_list)
+
+loci_list <- loci_hma
+
+# loci_combine <- function(loci_list) {
+#   loci_unlisted <- purrr::map(
+#     .x = cli::cli_progress_along(loci_list, name = "Unlisting loci"),
+#     .f = function(i) {
+#       purrr::map(
+#         .x = loci_list[[i]],
+#         .f = function(x) dplyr::mutate(x, locus_name = names(x))
+#       )
+#       unlisted <- dplyr::bind_rows(loci_list[[i]])
+#       unlisted
+#     }
+#   )
+#   names(loci_unlisted) <- names(loci_list)
+#   combined <- padlocout_combine(loci_unlisted)
+# }
+
+
+
+loci_combined <- loci_combine(loci_hma)
+
+
+
+
+
+compact_loci <- function(loci_list) {
+
+}
+
+
+
+
+
+combine_gff <- function(gff_list) {
+  to_combine <- purrr::map(
+    .x = cli::cli_progress_along(gff_list, name = "Combining GFF files"),
+    .f = function(i) {
+      # Check if there's a column for genome accession, and if not make one
+      if (! "genome.accession" %in% names(gff_list[[i]])) {
+        file_name <- names(gff_list[i])
+        genome_accession <- stringr::str_remove(file_name, "_genomic.gff")
+        x <- dplyr::mutate(gff_list[[i]], "genome.accession" = genome_accession)
+        x <- dplyr::select(x, "genome.accession", dplyr::everything())
+        x
+      } else {
+        gff_list[[i]]
+      }
+    }
+  )
+  combined <- dplyr::bind_rows(to_combine)
+  combined
+}
+
+
+
+
+tmp <- read_fasta_file("D:/payle484/refseq/faa/00/GCF_000003955.1_ASM395v1_protein.faa")
+tmp[names(tmp) %in% c("WP_000278981.1", "WP_000262736.1", "WP_000229708.1")]
+
+
+seqs <- purrr::map(
+  .x = cli::cli_progress_along(seq_along(1:nrow(proteins_index))),
+  .f = function(i) {
+    file <- fs::path_join(c(path_db, adjacent_proteins_index[["path_faa"]][i]))
+    id <- adjacent_proteins_index[["Name"]][i]
+    seq <- seqext(id, file)
+    seq
+  }
+)
+
+
+proteins_index <- adjacent_proteins_index
+
+
+
+tmp <- furrr::future_map2(
+  .x = proteins_index[["path_faa"]],
+  .y = proteins_index[["Name"]],
+  .f = ~ {
+    file <- fs::path_join(c(path_db, .x))
+    seq <- seqext(.y, file)
+    seq
+  }
+)
+
+proteins_index <- adjacent_proteins_index[1:10000,]
+
+
+
+future::plan(future.callr::callr, workers = 16)
+
+tictoc::tic()
+progressr::with_progress(
+  {tmp2 <- future_seqext(proteins_index, path_db)}
+  ) 
+tictoc::toc()
+
+future::plan(future::sequential)
+
+# 32 workers, callr, 15795 proteins = 609.14 sec
+
+tmp_unlisted <- unlist(tmp)
+readr::write_lines(tmp_unlisted, "D:/payle484/data/hma_adjacent_proteins.faa", )
+
+
+clukey <- readr::read_tsv("D:/payle484/mmseqs/hma_adjacent_clu_cluster.tsv", col_names = c("cluster", "member"), col_types = c("c", "c")) %>% dplyr::distinct(member, .keep_all = TRUE)
+
+loci_nameattr <- gff_separate_attributes(loci_combined, keep = "Name")
+
+loci_clu <- dplyr::left_join(loci_nameattr, clukey, by = dplyr::join_by("Name" == "member"), multiple = "all")
+
+tmp <- loci_clu %>% 
+  dplyr::ungroup() %>%
+  # dplyr::mutate(relative_relative_position = ifelse(strand == "+", relative.position, -relative.position)) #%>% 
+  dplyr::mutate(cluster = ifelse(is.na(cluster), protein.name, cluster)) %>%
+  dplyr::group_by(genome.accession, seqid, locus_name) %>% 
+  # dplyr::arrange(relative_relative_position) %>%
+  dplyr::arrange(cluster) %>% # Just arrange loci alphabetically by cluster
+  dplyr::mutate(
+    locus = paste0(cluster, collapse = ">>")
+  ) %>%
+  dplyr::distinct(genome.accession, seqid, locus_name, locus) %>%
+  dplyr::group_by(locus) %>%
+  dplyr::summarise(n = dplyr::n()) %>%
+  dplyr::arrange(desc(n))
+
+tmp2 <- loci_clu %>% 
+  dplyr::ungroup() %>%
+  dplyr::mutate(cluster = ifelse(is.na(cluster), protein.name, cluster)) %>%
+  dplyr::group_by(genome.accession, seqid, locus_name) %>% 
+  dplyr::arrange(cluster) %>% # Just arrange loci alphabetically by cluster
+  dplyr::mutate(
+    locus = paste0(cluster, collapse = ">>")
+  ) %>%
+  dplyr::arrange(genome.accession, seqid, locus_name, relative.position) %>%
+  dplyr::ungroup()
+
+tmp2 %>% 
+  dplyr::filter(locus == tmp[[1,1]]) %>% 
+  dplyr::group_by(genome.accession, seqid, locus_name) %>%
+  dplyr::mutate(locus = paste0(cluster, collapse = "__")) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(locus) %>%
+  dplyr::summarise(n = dplyr::n())
+
+loci_unique <- loci_clu %>% 
+  dplyr::ungroup() %>%
+  dplyr::mutate(cluster = ifelse(is.na(cluster), protein.name, cluster)) %>%
+  dplyr::group_by(genome.accession, seqid, locus_name) %>% 
+  dplyr::arrange(cluster) %>% # Just arrange loci alphabetically by cluster
+  dplyr::mutate(
+    locus = paste0(cluster, collapse = ">>")
+  ) %>%
+  dplyr::select(genome.accession, seqid, locus_name, locus) %>%
+  dplyr::distinct() %>%
+  dplyr::group_by(locus) %>%
+  dplyr::slice_head() %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-locus) %>%
+  dplyr::mutate(keep = TRUE)
+
+embedded_hma <- purrr::map(
+  .x = cli::cli_progress_along(padlocout_list, name = "Finding loci"),
+  .f = function(i) {
+    gff_path <- fs::path_join(c(path_db, unique(padlocout_list[[i]]$path_gff)))
+    gff <- read_gff(gff_path)
+    gff_cds <- dplyr::filter(gff, type == "CDS")
+    gff_cds_pos <- assign_position(gff_cds)
+    gff_joined <- gff_join_padlocout(gff_cds_pos, padlocout_list[[i]])
+    gff_joined_filtered <- gff_filter_locus(padlocout_list[[i]], gff_joined, 0)
+    gff_joined_filtered
+  }
+)
+
+names(embedded_hma) <- names(padlocout_master_hma_list)
+
+embedded_hma_combined <- loci_combine(embedded_hma)
+
+embedded_hma_combined_unq <- embedded_hma_combined %>%
+  dplyr::left_join(loci_unique, by = dplyr::join_by(genome.accession, seqid, locus_name)) %>%
+  dplyr::filter(keep == TRUE)
+
+embedded_hma_combined_unq %>% 
+  dplyr::group_by(genome.accession, seqid, locus_name) %>%
+  dplyr::mutate(has_embedded = ifelse(any(is.na(protein.name)), TRUE, FALSE)) %>%
+  dplyr::select(locus_name, has_embedded) %>% 
+  dplyr::distinct() %>%
+  dplyr::group_by(has_embedded) %>%
+  dplyr::summarise(n = dplyr::n())
+
+
+
+```
+

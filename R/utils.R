@@ -25,16 +25,24 @@ cols_c <- function(cols) {
 #' @param func A function to use for reading.
 #' @param pattern An optional regular expression. Only file names which match
 #' the regular expression will be returned.
-#' @param name The name of the progress bar to display.
+#' @param namefix An optional regular expression. The name of each element
+#' in the resulting list is derived from the file names. This regex is used to
+#' remove a string from each file name before naming the elements.
+#' @param barname The name of the progress bar to display.
 #' @return A [list()], where each element is a [tibble::tibble()] holding
 #' the contents of the file.
 #' @export
-multi_read <- function(path = ".", func, pattern = NULL, name) {
+multi_read <- function(path = ".", func, pattern = NULL, namefix = NULL, barname) {
   func <- substitute(func)
   file_paths <- list.files(path, full.names = TRUE, pattern = pattern)
-  # file_content <- purrr::map(.x = file_paths, .f = function(x) eval(func)(x))
-  file_content <- purrr::map(.x = cli::cli_progress_along(file_paths, name = name), .f = function(i) eval(func)(file_paths[i]))
+  file_content <- purrr::map(
+    .x = cli::cli_progress_along(file_paths, name = barname),
+    .f = function(i) eval(func)(file_paths[i])
+  )
   file_names <- basename(file_paths)
+  if (!is.null(namefix)) {
+    file_names <- stringr::str_remove(file_names, namefix)
+  }
   names(file_content) <- file_names
   file_content
 }
