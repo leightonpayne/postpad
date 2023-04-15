@@ -39,6 +39,6 @@ future::plan(future.callr::callr, workers = opt$cpu)
 index <- postpad::read_db_index(opt$index)
 padlocout_master <- postpad::read_padlocout_master(opt$input)
 
-loci <- postpad::build_loci(padlocout_master, index, opt$seqdb, opt$distance)
+progressr::with_progress(loci <- postpad::build_loci(padlocout_master, index, opt$seqdb, opt$distance))
 
 readr::write_rds(loci, opt$output)
