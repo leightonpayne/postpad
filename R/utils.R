@@ -46,3 +46,59 @@ multi_read <- function(path = ".", func, pattern = NULL, namefix = NULL, barname
   names(file_content) <- file_names
   file_content
 }
+
+#' @export
+mutate_proportion <- function(.data,
+                              col,
+                              name = "proportion",
+                              .by = NULL,
+                              .keep = c("all", "used", "unused", "none")) {
+  out <- dplyr::mutate(
+    .data = .data,
+    {{name}} := {{col}} / sum({{col}}),
+    .by = .by, .keep = .keep
+    )
+  out
+}
+
+#' @export
+mutate_cur_group_id <- function(.data,
+                                name = "cur_group_id",
+                                .by = NULL,
+                                .keep = c("all", "used", "unused", "none")) {
+  out <- dplyr::mutate(
+    .data = .data,
+    {{name}} := dplyr::cur_group_id(),
+    .by = .by, .keep = .keep
+  )
+  out
+}
+
+#' @export
+mutate_system_id <- function(padlocout, name = "system_id") {
+  system_id_group <- c("genome.accession", "seqid", "system", "system.number")
+  padlocout_ids <- mutate_cur_group_id(
+    padlocout, name = {{ name }}, .by = system_id_group
+  )
+}
+
+#' @export
+summarise_n <- function(.data, name = "n", .by = NULL, .groups = NULL) {
+  out <- dplyr::summarise(.data = .data, {{name}} := dplyr::n(), .by = .by, .groups = .groups)
+  out
+}
+
+#' @export
+summarise_proportion <- function(.data, name = "proportion", .by = NULL, .groups = NULL, .keep = c("all", "used", "unused", "none")) {
+  n <- summarise_n(.data = .data, name = "n", .by = .by, .groups = .groups)
+  out <- mutate_proportion(.data = n, col = n, name = {{ name }}, .by = NULL, .keep = .keep)
+  out
+}
+
+#' @export
+a4dim <- function(n = 1) {
+  l <- 246.2
+  w <- 159.2
+  d <- glue::glue('{w * n} mm x {l * n} mm')
+  d
+}

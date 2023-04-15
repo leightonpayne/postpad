@@ -27,10 +27,10 @@ padlocout_mutate_locus_limits <- function(padlocout, distance) {
 
 #' Create a column for relative position
 #' @export
-gff_mutate_relative_position <- function(gff) {
+gff_mutate_relative_position <- function(gff, name = "relative.position") {
   arranged <- dplyr::arrange(gff, seqid, start)
   grouped <- dplyr::group_by(arranged, seqid, type)
-  mutated <- dplyr::mutate(grouped, relative.position = dplyr::row_number())
+  mutated <- dplyr::mutate(grouped, {{ name }} := dplyr::row_number())
   ungrouped <- dplyr::ungroup(mutated)
   ungrouped
 }
@@ -104,6 +104,11 @@ gff_join_padlocout <- function(gff, padlocout) {
   out <- dplyr::left_join(gff, padlocout, by = dplyr::join_by(seqid, start, end, strand, relative.position))
   out
 }
+
+
+
+
+
 
 
 

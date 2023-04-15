@@ -18,6 +18,22 @@ gff_separate_attributes <- function(gff, keep = "all") {
   }
 }
 
+#' @export
+gff_attributes <- c("ID", "Parent", "Dbxref", "Name", "gbkey", "inference", "locus_tag", "product", "protein_id", "transl_table", "Note", "end_range", "partial", "pseudo", "gene", "start_range", "exception", "transl_except")
+
+#' @export
+gff_collect_attributes <- function(gff, attributes = gff_attributes) {
+  attributes_in_gff <- intersect(names(gff), attributes)
+  id_rows <- dplyr::mutate(gff, unq = dplyr::row_number())
+  pivoted <- tidyr::pivot_longer(id_rows, cols = attributes_in_gff, names_to = "attribute", values_to = "value")
+  nas_removed <- dplyr::filter(pivoted, !is.na(value))
+  attributed <- dplyr::mutate(nas_removed, attribute_value = paste0(attribute, "=", value))
+  merged_attributes <- dplyr::mutate(attributed, attributes = paste0(attribute_value, collapse = ";"), .by = unq)
+  distinct <- dplyr::distinct(merged_attributes, unq, .keep_all = TRUE)
+  out <- dplyr::select(distinct, -c(dplyr::any_of(attributes_in_gff), unq, attribute, value, attribute_value))
+  out
+}
+
 # I thought this might be faster than `separate_attributes()`, but it's not.
 # select_attributes <- function(gff, attributes) {
 #   pattern <- paste0(attributes, "=.*?(?=;)", collapse = "|")

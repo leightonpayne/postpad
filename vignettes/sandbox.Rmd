@@ -18,30 +18,8 @@ knitr::opts_chunk$set(
 ```
 
 ```{r}
-padlocout <- master_padlocout %>% dplyr::filter(genome.accession == "GCF_016465845.1_ASM1646584v1")
-gff <- read_gff("/Volumes/SSD-01/02_working/sys_in_sys_final_analyses/data/GCF_016465845.1_ASM1646584v1_genomic.gff")
-gff_cds <- gff %>% dplyr::filter(type == "CDS")
-gff_cds_pos <- assign_position(gff_cds)
-gff_joined <- gff_join_padlocout(gff_cds_pos, padlocout)
-gff_joined_filtered <- gff_filter_locus(padlocout, gff_joined, 3)
-gff_joined_filtered
-
-
-gff_joined_filtered_separated <- purrr::map(
-  .x = gff_joined_filtered,
-  .f = function(x) {
-    out <- gff_separate_attributes(x, keep = "Name")
-    out
-  }
-)
-
-```
-
-
-
-
-```{r}
-# seqext benchmark
+# BENCHMARKING SEQUENCE EXTRACTION
+# ------------------------------------------------------------------------------
 
 file <- "~/sync/personal/projects/padloc/test/GCF_001688665.2.faa"
 
@@ -69,16 +47,32 @@ microbenchmark::microbenchmark(ids_1000_out <- purrr::map(.x = ids_1000, .f = fu
 ```
 
 ```{r}
-tmp <- master_padlocout %>% dplyr::filter(seqid == "NC_021658.1")
 
-isl <- master_padlocout %>% 
-  dplyr::group_by(genome.accession, seqid) %>%
-  dplyr::distinct(relative.position) %>% 
-  dplyr::arrange(relative.position) %>% 
-  dplyr::mutate(island = cumsum(c(1, abs(diff(relative.position)) > 5 + 1))) %>%
-  dplyr::group_by(island, .add = TRUE) %>%
-  dplyr::mutate(island.length = dplyr::n()) #%>%
-  dplyr::arrange(desc(island.length))
+
+# GROUP BY MOLECULAR UNITS, TESTING
+
+
+df <- tibble::tibble(
+  molecule = c("mol_01", "mol_01", "mol_01", "mol_01", "mol_01", "mol_02", "mol_02", "mol_02", "mol_02", "mol_02"),
+  system   = c("sys_01", "sys_01", "sys_02", "sys_02", "sys_03", "sys_01", "sys_01", "sys_04", "sys_04", "sys_05"),
+  gene     = c("gen_01", "gen_02", "gen_01", "gen_01", "gen_02", "gen_01", "gen_02", "gen_01", "gen_02", "gen_01"),
+  start    = c(       1,      121,      601,      841,     1801,        1,      121,      841,      961,     1081),
+  end      = c(     100,      220,      700,      940,     1900,      100,      220,      940,     1060,     1180),
+  position = c(       1,        2,        5,        7,       15,        1,        2,        7,        8,        9)
+)
+
+# First add columns for the minimum and maximum positions for each system, so 
+# systems already grouped don't get lost.
+df_grouped <- add_group_limits(df, position, position, .by = c("molecule", "system"))
+df_grouped <- add_group_limits(df_grouped, start, end, .by = c("molecule", "system"))
+
+# Not necessary, but simplifies the data frame.
+df_nested <- tidyr::nest(df_grouped, .by = c("molecule", "system", "min_system_position", "max_system_position", "min_system_start", "max_system_end"))
+
+group_by_distance(df_nested, min_system_position, max_system_position, n = 1, name = "island", .by = "molecule")
+group_by_distance(df_nested, min_system_start, max_system_end, n = 500, name = "island", .by = "molecule")
+
+
 ```
 
 ```{r}
@@ -354,5 +348,134 @@ embedded_hma_combined_unq %>%
 
 
 
+
+
+
+
 ```
 
+```{r}
+# REASSEMBLE A DIVIDED PADLOCDB
+
+path <- "D:/payle484/padlocdb-final/padloc_data"
+
+read_split_hmm_meta <- function(path) {
+  dirs <- fs::dir_ls(path)
+  hmm_meta_paths <- purrr::map_vec(dirs, ~ fs::path_join(c(.x, "hmm_meta.txt")))
+  hmm_meta_list <- purrr::map(hmm_meta_paths, ~ padlocdev:::read_hmm_meta(.x))
+  hmm_meta_list
+}
+
+hmm_meta_combine <- function(hmm_meta_list) {
+  hmm_meta_bound <- dplyr::bind_rows(hmm_meta_list)
+  hmm_meta_distinct <- dplyr::distinct(hmm_meta_bound, hmm.acc, .keep_all = TRUE)
+  hmm_meta_arranged <- dplyr::arrange(hmm_meta_distinct, hmm.acc)
+  hmm_meta_arranged
+}
+
+hmm_meta_list <- read_split_hmm_meta(path)
+hmm_meta <- hmm_meta_combine(hmm_meta_list)
+hmm_meta <- padlocdev::expand_hmm_meta(hmm_meta)
+
+read_split_sys_meta <- function(path) {
+  dirs <- fs::dir_ls(path)
+  sys_meta_paths <- purrr::map_vec(dirs, ~ fs::path_join(c(.x, "sys_meta.txt")))
+  sys_meta_list <- purrr::map(sys_meta_paths, ~ padlocdev:::read_sys_meta(.x))
+  sys_meta_list
+}
+
+sys_meta_combine <- function(sys_meta_list) {
+  sys_meta_bound <- dplyr::bind_rows(sys_meta_list)
+  sys_meta_distinct <- dplyr::distinct(sys_meta_bound, yaml.name, .keep_all = TRUE)
+  sys_meta_arranged <- dplyr::arrange(sys_meta_distinct, yaml.name)
+  sys_meta_arranged
+}
+
+sys_meta_list <- read_split_sys_meta(path)
+sys_meta <- sys_meta_combine(sys_meta_list)
+
+read_split_padloc_model <- function(path) {
+  dirs <- fs::dir_ls(path)
+  sys_dirs <- purrr::map_vec(dirs, ~ fs::path_join(c(.x, "sys")))
+  models_list <- purrr::map(sys_dirs, ~ padlocdev::multi_read_padloc_model(.x))
+  names(models_list) <- NULL
+  models <- unlist(models_list, recursive = FALSE)
+  models
+}
+
+models <- read_split_padloc_model(path)
+
+hmmer3db_separate <- function(path, out = NULL, remove = FALSE) {
+
+  if ( checkmate::check_null(out) ) out <- fs::path_dir(path)
+  
+  # read in the HMMER3 profile HMM database
+  hmmer3db <- readr::read_lines(path, progress = FALSE)
+  
+  # extract the individual HMMs and their accession headers
+  hmm_heads <- which(stringr::str_detect(hmmer3db, "^HMMER3/f"))
+  hmm_tails <- which(stringr::str_detect(hmmer3db, "^//"))
+  hmm_accs  <- which(stringr::str_detect(hmmer3db, "^ACC"))
+  hmm_accs  <- stringr::str_extract(hmmer3db[hmm_accs], "(?<=ACC   ).*")
+  
+  hmm_count <- length(hmm_heads)
+  
+  hmms <- purrr::map2(hmm_heads, hmm_tails, ~ paste0(hmmer3db[.x:.y], collapse = "\n"))
+  
+  purrr::iwalk(
+    hmms, 
+    function(x, idx) {
+      readr::write_file(x, fs::path_join(c(out, paste0(hmm_accs[idx], ".hmm"))))
+    }
+  )
+  
+  if ( remove == TRUE ) fs::file_delete(path)
+
+}
+
+hmmer3db_paths <- 
+  fs::dir_ls("D:/payle484/padlocdb-final/padloc_data/") %>%
+  purrr::map_vec(~ fs::path_join(c(.x, "hmm/padlocdb.hmm")))
+
+purrr::walk(hmmer3db_paths, ~ hmmer3db_separate(.x, remove = TRUE), .progress = TRUE)
+
+read_split_hmm_header <- function(path) {
+  dirs <- fs::dir_ls(path)
+  hmm_dirs <- purrr::map_vec(dirs, ~ fs::path_join(c(.x, "hmm")))
+  hmms_list <- purrr::map(hmm_dirs, ~ padlocdev::multi_read_hmm_header(.x), .progress = TRUE)
+  names(hmms_list) <- NULL
+  hmms <- unlist(hmms_list, recursive = FALSE)
+  hmms_unique <- hmms[!duplicated(paste(hmms, names(hmms)))]
+  hmms_unique
+}
+
+hmms <- read_split_hmm_header(path)
+
+# Verify that HMM file names match their accession.
+padlocdev::verify_hmm_names(hmms)
+# Compare the profile HMMs with the HMM metadata table.
+padlocdev::compare_hmm_files_hmm_meta(hmms, hmm_meta)
+# Compare the system models with the system metadata table.
+padlocdev::compare_sys_files_sys_meta(models, sys_meta)
+# Expand the HMM metadata table to account for HMMs with multiple name 
+# assignments, and expand the system models to account for groups of genes.
+hmm_meta_expanded <- padlocdev::expand_hmm_meta(hmm_meta)
+models_expanded   <- padlocdev::expand_gene_groups_all(models, hmm_meta_expanded)
+# Compare the system models with the HMM metadata table.
+padlocdev::compare_sys_files_hmm_meta(models_expanded, hmm_meta_expanded)
+# Generate a validity report for the system models. Inspect the validity report 
+# to confirm that all models are valid. Update the models where necessary, then 
+# re-read and re-validate to confirm.
+validity_report <- padlocdev::report_padloc_model_validity(models_expanded)
+padlocdev::why_invalid(validity_report)
+
+# Write-out
+fs::dir_create("D:/payle484/shuffling/padloc-db/sys")
+
+hmm_meta_out <- dplyr::mutate(hmm_meta, dplyr::across(dplyr::everything(), as.character))
+readr::write_tsv(hmm_meta_out, "D:/payle484/shuffling/padloc-db/hmm_meta.txt")
+
+readr::write_tsv(sys_meta, "D:/payle484/shuffling/padloc-db/sys_meta.txt")
+
+padlocdev::multi_write_padloc_model(models, "D:/payle484/shuffling/padloc-db/sys/")
+```

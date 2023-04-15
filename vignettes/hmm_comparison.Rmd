@@ -1,0 +1,71 @@
+---
+title: "HMM comparison"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{HMM comparison}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options:
+  chunk_output_type: console
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+```{r setup}
+
+hhcat_path <- "D:/payle484/all_vs_all/hma_internal_nonredundant/hhsearch/allvall.hhcat"
+hhcat <- read_hhcat(hhcat_path)
+hhcat_proc <- hhcat_process(hhcat)
+hhcat_filt <- hhcat_filter(hhcat_proc, probability = 70, match_coverage = 70, query_coverage = 70)
+hhcat_graph <- hhcat_graph(hhcat_filt)
+
+second_order_clusters <- hhcat_graph %>% 
+  dplyr::mutate(cluster = tidygraph::group_components(type = "weak")) %>%
+  tidygraph::activate(nodes) %>%
+  tibble::as_tibble() %>%
+  dplyr::rename(clu_representative = cluster, clu_member = name)
+
+cluster_key_hma_internal <- read_mmseqs_cluster_tsv("D:/payle484/all_vs_all/hma_internal_nonredundant/cluster_workflow/results/clusters/hma_internal_nonredundant/hma_internal_nonredundant.tsv")
+
+graph_nodes <- tidygraph::activate(graph_grouped, nodes)
+graph_clusters <- tibble::as_tibble(graph_nodes)
+
+
+first_order_clusters <- cluster_key_hma_internal
+
+
+#' Assign 
+#' @export
+extend_clusters <- function(first_order_clusters, second_order_clusters) {
+  combined <- dplyr::left_join(
+    first_order_clusters, second_order_clusters, 
+    by = c("clu_representative" = "clu_member"),
+    suffix = c("_first_order", "_second_order")
+  )
+  max_cluster <- max(second_order_clusters$clu_representative)
+  assigned <- dplyr::filter(combined, !is.na(clu_representative_second_order))
+  unassigned <- dplyr::filter(combined, is.na(clu_representative_second_order))
+  ununassigned <- dplyr::mutate(
+    unassigned, 
+    clu_representative_second_order = dplyr::cur_group_id() + max_cluster, 
+    .by = "clu_representative"
+  )
+  bound <- dplyr::bind_rows(assigned, ununassigned)
+  renamed <- dplyr::rename(bound, clu_ord_2 = clu_representative_second_order, clu_ord_1 = clu_representative)
+  selected <- dplyr::select(renamed, clu_ord_2, clu_ord_1, clu_member)
+  out <- dplyr::arrange(selected, clu_ord_2)
+  out
+}
+
+extended_clusters <- extend_clusters(first_order_clusters, second_order_clusters)
+
+readr::write_tsv(extended_clusters, "D:/payle484/data/cluster_key.txt", col_names = FALSE)
+
+
+```

@@ -4,7 +4,7 @@
 \alias{gff_mutate_relative_position}
 \title{Create a column for relative position}
 \usage{
-gff_mutate_relative_position(gff)
+gff_mutate_relative_position(gff, name = "relative.position")
 }
 \description{
 Create a column for relative position

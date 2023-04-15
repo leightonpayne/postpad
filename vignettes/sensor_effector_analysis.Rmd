@@ -1,0 +1,70 @@
+---
+title: "Sensor/Effector Analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Sensor/Effector Analysis}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options:
+  chunk_output_type: console
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+```{r}
+# Make all calls to progressr print a progress bar.
+progressr::handlers(global = TRUE)
+progressr::handlers("cli")
+library(ggplot2)
+```
+
+
+```{r}
+path_wd <- "D:/payle484/shuffling/"
+
+path_padlocout_master <- fs::path_join(c(path_wd, "padlocout/padloc_all.csv"))
+padlocout_master <- read_padlocout_master(path_padlocout_master)
+
+path_refseq_db <- "D:/payle484/refseq/"
+
+path_refseq_db_index <- fs::path_join(c(path_refseq_db, "index.txt"))
+refseq_db_index <- read_db_index(path_refseq_db_index)
+```
+
+```{r}
+# BUILD LOCI
+# ------------------------------------------------------------------------------
+
+padlocout_master_ids <- mutate_system_id(padlocout_master, "unq_system")
+
+padlocout_master_ids %>% dplyr::pull(unq_system) %>% max() / 9
+
+padlocout_chunk_01 <- dplyr::filter(padlocout_master_ids, dplyr::between(unq_system, 1, 241604))
+
+# Extract GFF information of surrounding genes to 'build' loci.
+future::plan(future.callr::callr, workers = 32)
+all_loci_10_01 <- build_loci(padlocout_chunk_01, refseq_db_index, path_refseq_db, 10)
+all_loci_10_01_rds_path <- fs::path_join(c(path_wd, "rds/all_loci_01_10.rds"))
+readr::write_rds(hma_loci_10, hma_loci_10_rds_path)
+
+# # Extract GFF information of surrounding genes to 'build' loci.
+# future::plan(future.callr::callr, workers = 32)
+# hma_loci_00 <- build_loci(padlocout_hma, index, path_db, 0)
+# hma_loci_00_rds_path <- fs::path_join(c(path_wd, "rds/hma_loci_00.rds"))
+# readr::write_rds(hma_loci_00, hma_loci_00_rds_path)
+
+# Read in pre-built loci.
+hma_loci_06_rds_path <- fs::path_join(c(path_wd, "rds/hma_loci_06.rds"))
+hma_loci_06 <- readr::read_rds(hma_loci_06_rds_path)
+
+# Separate the attributes column and just keep the "Name" attribute (i.e. the 
+# protein name; WP_...) and "locus_tag".
+hma_loci_attr <- gff_separate_attributes(hma_loci_06, keep = c("Name", "locus_tag"))
+
+```

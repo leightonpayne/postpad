@@ -13,10 +13,11 @@ Imports:
     fs,
     furrr,
     lifecycle,
+    padlocdev (>= 0.0.0.9000),
     progressr,
     purrr,
     readr,
-    rlang,
+    rlang (>= 0.4.11),
     stringr,
     tibble,
     tidyr
@@ -27,27 +28,47 @@ RoxygenNote: 7.2.3
 URL: https://github.com/leightonpayne/postpad
 BugReports: https://github.com/leightonpayne/postpad/issues
 Collate: 
+    'add-group-limits.R'
     'build-loci.R'
     'combine.R'
+    'extend-clusters.R'
     'gff-separate-attributes.R'
+    'ggplot-themes.R'
+    'group-molecular-units.R'
+    'hhcat-filter.R'
+    'hhcat-graph.R'
+    'hhsearch-process.R'
     'legacy.R'
     'loci-combine.R'
+    'loci-tbl-nest-structure.R'
+    'padlocout-resolve-overlaps.R'
     'postpad-package.R'
+    'read-cath.R'
+    'read-db-index.R'
     'utils.R'
     'read-gff.R'
+    'read-hhcat.R'
+    'read-hhsearch.R'
+    'read-hmmer.R'
     'read-mmseqs.R'
     'read-padlocout.R'
+    'read-pfam.R'
     'read-seqkit.R'
     'sandbox.R'
     'seq_extract.R'
     'setup.R'
     'summarise-padlocout.R'
+    'summarise-pseudos.R'
+    'utils-tidy-eval.R'
     'zzz.R'
 Suggests: 
     checkmate,
     getopt,
     knitr,
     rmarkdown,
+    roxygen2,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Remotes: 
+    github::leightonpayne/padlocdev

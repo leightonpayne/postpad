@@ -12,8 +12,18 @@ seq_extract(id, file)
 \item{file}{The path to the FASTA file.}
 }
 \value{
-A character vector with one string per line of the extracted sequence.
+A character vector with one string per line of the extracted
+sequence.
 }
 \description{
-Extract a DNA/protein sequence from a FASTA file
+Use the system's \code{awk} implementation to extract a sequence from a
+multi-FASTA file based on the identifier in the sequence headers
+e.g. the identifier for:
+}
+\details{
+">WP_002564308.1 acyl carrier protein"
+
+is:
+
+"WP_002564308.1"
 }
