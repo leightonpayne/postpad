@@ -29,10 +29,6 @@ if (!collection$isEmpty()) {
   cli::cli_abort(c("Invalid arguments.", collection$getMessages()))
 }
 
-# Make all calls to progressr print a progress bar.
-progressr::handlers(global = TRUE)
-progressr::handlers("txtprogressbar")
-
 # Set future plan
 future::plan(future.callr::callr, workers = opt$cpu)
 

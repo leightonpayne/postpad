@@ -74,11 +74,11 @@ build_loci <- function(padlocout, index, path_db, distance) {
   padlocout_nested <- tidyr::nest(padlocout_index, .by = c("genome.accession", "path_gff"))
   nested_data <- dplyr::pull(padlocout_nested, data)
 
-  p <- progressr::progressor(along = nested_data)
+  # p <- progressr::progressor(along = nested_data)
 
   nested_data_w_loci <- purrr::imap(.x = nested_data, .f = function(x, idx) {
 
-    p()
+    # p()
 
     gff_path <- fs::path_join(c(path_db, dplyr::pull(padlocout_nested[idx,], path_gff)))
     gff <- read_gff(gff_path)
@@ -108,7 +108,7 @@ build_loci <- function(padlocout, index, path_db, distance) {
     out <- tidyr::unnest(systems_nested, tidyr::everything())
     out
 
-  })
+  }, .progress = TRUE)
 
   padlocout_nested[["data"]] <- nested_data_w_loci
   out <- tidyr::unnest(padlocout_nested, tidyr::everything())
