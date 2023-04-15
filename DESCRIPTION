@@ -8,10 +8,13 @@ Authors@R:
 Description: Post-processing tools for exploring PADLOC results.
 License: MIT + file LICENSE
 Imports: 
+    checkmate,
     cli,
     dplyr,
     fs,
     furrr,
+    future.callr,
+    getopt,
     lifecycle,
     padlocdev (>= 0.0.0.9000),
     progressr,
@@ -62,8 +65,6 @@ Collate:
     'utils-tidy-eval.R'
     'zzz.R'
 Suggests: 
-    checkmate,
-    getopt,
     knitr,
     rmarkdown,
     roxygen2,
