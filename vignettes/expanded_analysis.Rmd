@@ -1,0 +1,683 @@
+---
+title: "Expanded analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Expanded analysis}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options:
+  chunk_output_type: console
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+```{r setup}
+library(postpad)
+```
+
+```{r}
+# Make all calls to progressr print a progress bar.
+progressr::handlers(global = TRUE)
+progressr::handlers("cli")
+future::plan(future.callr::callr, workers = 32)
+```
+
+```{r}
+path_wd <- "D:/payle484/embedded_sys/"
+
+path_padlocout_master <- fs::path_join(c(path_wd, "padlocout/padlocout_master.csv"))
+padlocout_master <- read_padlocout_master(path_padlocout_master)
+
+padlocout_master_no_overlap <- padlocout_master %>% 
+  padlocout_resolve_overlaps()
+
+path_refseq_db <- "D:/payle484/refseq/"
+
+path_refseq_db_index <- fs::path_join(c(path_refseq_db, "index.txt"))
+refseq_db_index <- read_db_index(path_refseq_db_index)
+```
+
+```{r}
+# BUILD LOCI
+# ------------------------------------------------------------------------------
+
+# Systems to filter
+systems_filter <- c("brex|disarm|RM_type_I$")
+
+# Filter for specific systems
+padlocout_filtered <- padlocout_master_no_overlap %>% 
+  dplyr::filter(stringr::str_detect(system, systems_filter)) %>%
+  dplyr::filter(stringr::str_detect(system, "other", negate = TRUE)) %>%
+  # Drop systems w/ pseudogenes
+  dplyr::mutate(
+    has_pseudo = dplyr::if_else(
+      stringr::str_detect(target.name, "^pseudo_sub*"), TRUE, FALSE)
+  ) %>% dplyr::filter(
+    all(has_pseudo == FALSE),
+    .by = c(seqid, system, system.number)
+  )
+
+# Filter for systems with embedded genes
+padlocout_filtered_w_embedded <- padlocout_filtered %>%
+  padlocout_filter_embedded()
+
+# Filter for systems where all genes are on the same strand
+padlocout_filtered_stranded <- padlocout_filtered_w_embedded %>%
+  dplyr::mutate(
+    stranded = dplyr::if_else(all(strand == dplyr::first(strand)), TRUE, FALSE),
+    .by = c("genome.accession", "seqid", "system", "system.number")
+  ) %>%
+  dplyr::filter(stranded == TRUE) %>%
+  dplyr::select(-stranded)
+
+# BREX LOCI 
+# --------------------------------------
+
+padlocout_filtered_stranded_brex <- padlocout_filtered_stranded %>%
+  dplyr::filter(stringr::str_detect(system, "brex"))
+
+# loci_03_brex <- build_loci(padlocout_filtered_stranded_brex, refseq_db_index, path_refseq_db, 3)
+loci_03_brex_path <- fs::path_join(c(path_wd, "rds/brex_loci_03.rds"))
+# saveRDS(loci_03_brex, loci_03_brex_path)
+loci_03_brex <- readRDS(loci_03_brex_path)
+
+# DISARM LOCI 
+# --------------------------------------
+
+padlocout_filtered_stranded_disarm <- padlocout_filtered_stranded %>%
+  dplyr::filter(stringr::str_detect(system, "disarm"))
+
+# loci_03_disarm <- build_loci(padlocout_filtered_stranded_disarm, refseq_db_index, path_refseq_db, 3)
+loci_03_disarm_path <- fs::path_join(c(path_wd, "rds/disarm_loci_03.rds"))
+# saveRDS(loci_03_disarm, loci_03_disarm_path)
+loci_03_disarm <- readRDS(loci_03_disarm_path)
+
+# RM I LOCI
+# --------------------------------------
+
+padlocout_filtered_stranded_rm_I <- padlocout_filtered_stranded %>%
+  dplyr::filter(stringr::str_detect(system, "RM_type_I$"))
+
+rm_I_filtered <- padlocout_filtered_stranded_rm_I %>% 
+  dplyr::mutate(
+    has_spec = dplyr::if_else(
+      stringr::str_detect(hmm.name, "^Specificity*"), TRUE, FALSE)
+  ) %>% 
+  dplyr::filter(
+    any(has_spec == TRUE),
+    .by = c(seqid, system, system.number)
+  ) %>% 
+  dplyr::mutate(
+    ngene = dplyr::row_number(), .by = c(seqid, system, system.number)
+  ) %>% 
+  dplyr::filter(
+    max(ngene) == 3, .by = c(seqid, system, system.number)
+  ) %>%
+  # Broken
+  dplyr::filter(genome.accession != "GCF_008329945.1_ASM832994v1")
+
+rm_I_filtered_grouped <- rm_I_filtered %>% mutate_system_id()
+
+sys_count <- max(rm_I_filtered_grouped$system_id)
+
+rm_I_filtered_01 <- rm_I_filtered_grouped %>% dplyr::filter(dplyr::between(system_id, 1,     10000))
+rm_I_filtered_02 <- rm_I_filtered_grouped %>% dplyr::filter(dplyr::between(system_id, 10001, 20000))
+rm_I_filtered_03 <- rm_I_filtered_grouped %>% dplyr::filter(dplyr::between(system_id, 20001, 30000))
+rm_I_filtered_04 <- rm_I_filtered_grouped %>% dplyr::filter(dplyr::between(system_id, 30001, 40000))
+rm_I_filtered_05 <- rm_I_filtered_grouped %>% dplyr::filter(dplyr::between(system_id, 40001, 45803))
+
+# loci_03_rm_I_01 <- build_loci(rm_I_filtered_01, refseq_db_index, path_refseq_db, 3)
+# loci_03_rm_I_01_path <- fs::path_join(c(path_wd, "rds/rm_I_loci_03_01.rds"))
+saveRDS(loci_03_rm_I_01, loci_03_rm_I_01_path)
+loci_03_rm_I_01 <- readRDS(loci_03_rm_I_01_path)
+
+# loci_03_rm_I_02 <- build_loci(rm_I_filtered_02, refseq_db_index, path_refseq_db, 3)
+loci_03_rm_I_02_path <- fs::path_join(c(path_wd, "rds/rm_I_loci_03_02.rds"))
+# saveRDS(loci_03_rm_I_02, loci_03_rm_I_02_path)
+loci_03_rm_I_02 <- readRDS(loci_03_rm_I_02_path)
+
+# This part is causing memory problems for some reason?
+# loci_03_rm_I_03 <- build_loci(rm_I_filtered_03, refseq_db_index, path_refseq_db, 3)
+loci_03_rm_I_03_path <- fs::path_join(c(path_wd, "rds/rm_I_loci_03_03.rds"))
+# saveRDS(loci_03_rm_I_03, loci_03_rm_I_03_path)
+loci_03_rm_I_03 <- readRDS(loci_03_rm_I_03_path)
+
+# || || || || ||
+# \/ \/ \/ \/ \/
+#
+# rm_I_filtered_0301 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 18325, 19342))
+# rm_I_filtered_0302 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 19343, 20360))
+# rm_I_filtered_0303 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 20361, 21378))
+# rm_I_filtered_0304 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 21379, 22396))
+# rm_I_filtered_0305 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 22397, 23414))
+# rm_I_filtered_0306 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 23415, 24432))
+#
+# # This is the broken part - can't read '29/GCF_008329945.1_ASM832994v1_genomic.gff'??
+# rm_I_filtered_0307 <- rm_I_filtered_03 %>%
+#   dplyr::filter(dplyr::between(system_id, 24433, 25450)) %>%
+#   dplyr::filter(genome.accession != "GCF_008329945.1_ASM832994v1")
+#
+# rm_I_filtered_0308 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 25451, 26468))
+# rm_I_filtered_0309 <- rm_I_filtered_03 %>% dplyr::filter(dplyr::between(system_id, 26469, 27486))
+#
+# loci_rm_I_filtered_0301 <- build_loci(rm_I_filtered_0301, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0302 <- build_loci(rm_I_filtered_0302, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0303 <- build_loci(rm_I_filtered_0303, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0304 <- build_loci(rm_I_filtered_0304, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0305 <- build_loci(rm_I_filtered_0305, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0306 <- build_loci(rm_I_filtered_0306, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0307 <- build_loci(rm_I_filtered_0307, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0308 <- build_loci(rm_I_filtered_0308, refseq_db_index, path_refseq_db, 3)
+# loci_rm_I_filtered_0309 <- build_loci(rm_I_filtered_0309, refseq_db_index, path_refseq_db, 3)
+#
+# loci_03_rm_I_03 <- dplyr::bind_rows(
+#   loci_rm_I_filtered_0301, loci_rm_I_filtered_0302, loci_rm_I_filtered_0303,
+#   loci_rm_I_filtered_0304, loci_rm_I_filtered_0305, loci_rm_I_filtered_0306,
+#   loci_rm_I_filtered_0307, loci_rm_I_filtered_0308, loci_rm_I_filtered_0309
+# )
+#
+# loci_03_rm_I_03_path <- fs::path_join(c(path_wd, "rds/rm_I_loci_03_03.rds"))
+# saveRDS(loci_03_rm_I_03, loci_03_rm_I_03_path)
+
+# loci_03_rm_I_04 <- build_loci(rm_I_filtered_04, refseq_db_index, path_refseq_db, 3)
+loci_03_rm_I_04_path <- fs::path_join(c(path_wd, "rds/rm_I_loci_03_04.rds"))
+# saveRDS(loci_03_rm_I_04, loci_03_rm_I_04_path)
+loci_03_rm_I_04 <- readRDS(loci_03_rm_I_04_path)
+
+# loci_03_rm_I_05 <- build_loci(rm_I_filtered_05, refseq_db_index, path_refseq_db, 3)
+loci_03_rm_I_05_path <- fs::path_join(c(path_wd, "rds/rm_I_loci_03_05.rds"))
+# saveRDS(loci_03_rm_I_05, loci_03_rm_I_05_path)
+loci_03_rm_I_05 <- readRDS(loci_03_rm_I_05_path)
+
+loci_03_rm_I <- dplyr::bind_rows(
+  loci_03_rm_I_01, loci_03_rm_I_02, loci_03_rm_I_03,
+  loci_03_rm_I_04, loci_03_rm_I_05
+)
+
+loci_03_rm_I_path <- fs::path_join(c(path_wd, "rds/rm_I_loci_03.rds"))
+# saveRDS(loci_03_rm_I, loci_03_rm_I_path)
+loci_03_rm_I <- readRDS(loci_03_rm_I_path)
+
+loci_03_combined <- 
+  dplyr::bind_rows(loci_03_brex, loci_03_disarm, loci_03_rm_I) %>%
+  mutate_system_id()
+
+loci_00_combined <- reduce_loci(loci_03_combined, 3)
+loci_00_combined_stranded <- loci_00_combined %>%
+  dplyr::mutate(
+    stranded = dplyr::if_else(all(strand == dplyr::first(strand)), TRUE, FALSE),
+    .by = c("genome.accession", "seqid", "system", "system.number")
+  ) %>%
+  dplyr::filter(stranded == TRUE) %>%
+  dplyr::select(-stranded)
+stranded_ids <- loci_00_combined_stranded %>% dplyr::pull(system_id)
+
+loci_03_combined_stranded <- loci_03_combined %>% 
+  dplyr::filter(system_id %in% stranded_ids)
+
+loci_03_combined_no_pseudo <- loci_03_combined_stranded %>%
+  dplyr::mutate(
+    contains_pseudo = dplyr::if_else(
+      any(stringr::str_detect(attributes, "pseudo_sub")), TRUE, FALSE), 
+    .by = c(genome.accession, seqid, system.number, system)
+  ) %>%
+  dplyr::filter(contains_pseudo == FALSE)
+
+# EXTRACT GENES SURROUNDING HMA SYSTEMS TO DETERIME UNIQUE LOCI
+# ------------------------------------------------------------------------------
+
+# Prepare a table for extracting sequences.
+loci_03_attsep <- gff_separate_attributes(loci_03_combined_no_pseudo)
+seq_extract_index <- make_seq_extract_index(loci_03_attsep, refseq_db_index, "Name", "path_faa")
+seq_extract_index_unique <- dplyr::distinct(seq_extract_index, id, .keep_all = TRUE)
+
+# Extract sequences
+# future::plan(future.callr::callr, workers = 32)
+# seqs <- future_seq_extract(path_refseq_db, seq_extract_index_unique)
+# seqs_unlisted <- unlist(seqs)
+# adjacent_proteins_path <- fs::path_join(c(path_wd, "adjacent_proteins/bdr_adjacent_proteins.faa"))
+# readr::write_lines(seqs_unlisted, adjacent_proteins_path)
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# CLUSTER THE PROTEINS W/ MMSEQS 
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+# ASSIGN CLUSTER NAMES TO PROTEINS IN LOCI
+# ------------------------------------------------------------------------------
+
+path_clustering <- fs::path_join(c(path_wd, "mmseqs_cluster_bdr_adjacent/results/"))
+
+# Read in the cluster key generated by mmseqs.
+path_cluster_key <- fs::path_join(c(path_clustering, "clusters/bdr_adjacent/bdr_adjacent.tsv"))
+cluster_key <- read_mmseqs_cluster_tsv(path_cluster_key)
+
+bdr_loci_clusters <- dplyr::left_join(
+  loci_03_attsep, cluster_key, 
+  by = dplyr::join_by("Name" == "clu_member")
+)
+
+# Assign each system gene to a cluster based on their name
+bdr_loci_clusters_filled <- dplyr::mutate(
+  bdr_loci_clusters,
+  clu_representative = dplyr::if_else(
+    is.na(target.name), clu_representative, protein.name
+  ) 
+)
+
+# Confirm that all adjacent proteins have been assigned to a cluster
+bdr_loci_clusters_filled %>% 
+  dplyr::filter(is.na(target.name)) %>%
+  dplyr::pull(clu_representative) %>% 
+  is.na() %>% any()
+
+# Read in the duplicates key generated by seqkit.
+path_duplicates_key <- fs::path_join(c(
+  path_clustering, "fasta_filtered/bdr_adjacent_seqkit_duplicates.txt"
+))
+duplicates_key <- read_seqkit_duplicates(path_duplicates_key)
+
+# Unnest the duplicates key so each row is a distinct pair of representative
+# and member.
+duplicates_key_unnested <- tidyr::unnest(duplicates_key, dup_member)
+duplicates_key_distinct <- dplyr::distinct(duplicates_key_unnested)
+
+# Assign the representative names to duplicate proteins that got discarded by
+# seqkit before clustering with mmseqs.
+bdr_loci_dups <- dplyr::left_join(
+  loci_03_attsep, duplicates_key_distinct,
+  by = dplyr::join_by("Name" == "dup_member")
+)
+bdr_loci_dups_filled <- dplyr::mutate(
+  bdr_loci_dups,
+  dup_representative = ifelse(is.na(dup_representative), Name, dup_representative)
+)
+
+# Assign the cluster names.
+bdr_loci_clusters <- dplyr::left_join(
+  bdr_loci_dups_filled, 
+  cluster_key, 
+  by = dplyr::join_by("dup_representative" == "clu_member")
+)
+
+# Assign each system gene to a cluster based on their name
+bdr_loci_clusters_filled <- dplyr::mutate(
+  bdr_loci_clusters,
+  clu_representative = dplyr::if_else(
+    is.na(target.name), clu_representative, protein.name
+  ) 
+)
+
+# Drop any remaining unassigned genes, as these were probably pseudogenes
+bdr_loci_clusters_filled <- bdr_loci_clusters_filled %>%
+  dplyr::filter(!is.na(clu_representative))
+
+# Confirm that all adjacent proteins have been assigned to a cluster
+bdr_loci_clusters_filled %>% 
+  dplyr::filter(is.na(target.name)) %>%
+  dplyr::pull(clu_representative) %>% 
+  is.na() %>% any()
+
+# SUMMARISE THE DIFFERENT LOCUS STRUCTURES
+# ------------------------------------------------------------------------------
+
+# Flip loci so all systems are on the same strand
+loci_tbl_flip_strands <- function(loci_tbl, anchor) {
+  needs_flip <- dplyr::mutate(
+    loci_tbl,
+    # `min(c("+", "-")) == "-"`
+    flip = dplyr::if_else(min(strand[protein.name == anchor], na.rm = TRUE) == "-", TRUE, FALSE),
+    new_pos = dplyr::if_else(flip == TRUE, - relative.position, relative.position),
+    .by = c("genome.accession", "seqid", "system", "system.number")
+  )
+  flipped <- dplyr::arrange(
+    needs_flip,
+    genome.accession, seqid, system, system.number, new_pos
+  )
+  out <- dplyr::select(flipped, - c(flip, new_pos))
+  out
+}
+
+bdr_loci_brex_flipped <- bdr_loci_clusters_filled %>%
+  dplyr::filter(stringr::str_detect(system, "^brex_")) %>%
+  loci_tbl_flip_strands("BrxC")
+
+bdr_loci_disarm_flipped <- bdr_loci_clusters_filled %>%
+  dplyr::filter(stringr::str_detect(system, "^disarm_")) %>%
+  loci_tbl_flip_strands("DrmA")
+
+bdr_loci_rm_flipped <- bdr_loci_clusters_filled %>%
+  dplyr::filter(stringr::str_detect(system, "^RM_")) %>%
+  loci_tbl_flip_strands("REase_I")
+
+bdr_loci_flipped <- dplyr::bind_rows(
+  bdr_loci_brex_flipped, bdr_loci_disarm_flipped, bdr_loci_rm_flipped
+)
+
+# SELECT A SAMPLE OF UNIQUE HMA SYSTEMS
+# ------------------------------------------------------------------------------
+
+loci_tbl_locus_structure <- loci_tbl_add_locus_structure(bdr_loci_flipped)
+
+loci_tbl_locus_structure_lims <- loci_tbl_locus_structure %>%
+  dplyr::mutate(
+    min_sys_relative.position = min(relative.position[!is.na(target.name)]),
+    max_sys_relative.position = max(relative.position[!is.na(target.name)]),
+    .by = c(genome.accession, seqid, system, system.number)
+  )
+
+# Add columns for distance to contig ends
+loci_tbl_locus_structure_contig_distance <- dplyr::mutate(
+  loci_tbl_locus_structure_lims,
+  distance_to_contig_start = min_sys_relative.position - 1,
+  distance_to_contig_end = contig.end - max_sys_relative.position,
+  min_distance_to_contig_border = min(distance_to_contig_start, distance_to_contig_end),
+  max_distance_to_contig_border = max(distance_to_contig_start, distance_to_contig_end),
+  .by = c(genome.accession, seqid, system, system.number)
+)
+
+loci_tbl_locus_structure_contig_distance_nested <- loci_tbl_locus_structure_contig_distance %>%
+  tidyr::nest(.by = c(locus_structure, genome.accession, seqid, system, system.number, min_distance_to_contig_border))
+
+loci_sample_nested <- loci_tbl_locus_structure_contig_distance_nested %>%
+  dplyr::slice_max(order_by = tibble::tibble(min_distance_to_contig_border, system.number), n = 1, by = locus_structure, with_ties = FALSE)
+
+# loci_tbl_nested_sample <- function(loci_tbl_nested) {
+#   sample <- purrr::map(loci_tbl_nested$data, ~ dplyr::slice_sample(.x))
+#   loci_tbl_nested$data <- sample
+#   loci_tbl_nested
+# }
+# 
+# # Set seed for reproducible `dplyr::slice_sample()`.
+# set.seed(14561983)
+# loci_sample_nested <- loci_tbl_nested_sample(loci_tbl_nested)
+
+sampled_genomes <- dplyr::pull(loci_sample_nested, genome.accession)
+sampled_loci <- dplyr::select(loci_sample_nested, genome.accession, seqid, system, system.number)
+
+padlocout_master_sampled <- padlocout_master %>%
+  dplyr::filter(genome.accession %in% sampled_genomes) %>%
+  dplyr::filter(stringr::str_detect(system, "other", negate = TRUE)) %>%
+  padlocout_resolve_overlaps()
+
+```
+
+```{r}
+# Replace old HEC data w/ new HEC data
+
+hecs_tested <- tibble::tribble(
+  ~system,      ~hec,
+  "CAND_00001", "HEC-05/06",
+  "CAND_00002", "HEC-02",
+  "CAND_00003", "HEC-08",
+  "CAND_00004", "HEC-09",
+  "CAND_00010", "HEC-01",
+  "CAND_00011", "HEC-07",
+  "CAND_00014", "HEC-04",
+  "CAND_00021", "HEC-03"
+)
+
+path_padlocout_hecs <- fs::path_join(c(path_wd, "padlocout/2023_03_28_HMA_EMBEDDED_padloc.csv"))
+padlocout_hecs <- read_padlocout_master(path_padlocout_hecs)
+
+padlocout_hecs_tested <- padlocout_hecs %>% 
+  dplyr::filter(system %in% hecs_tested$system) %>%
+  dplyr::left_join(hecs_tested, by = dplyr::join_by(system)) %>%
+  dplyr::mutate(system = hec) %>%
+  dplyr::select(-hec)
+
+min_sg_ieval  <- 1e-50
+min_sg_tarcov <- 0.75
+min_sg_hmmcov <- 0.75
+
+min_mg_ieval  <- 1e-25
+min_mg_tarcov <- 0.5
+min_mg_hmmcov <- 0.5
+
+padlocout_hecs_filtered <- padlocout_hecs_tested %>%
+  mutate_system_id() %>%
+  dplyr::mutate(n_genes = dplyr::n(), .by = system_id) %>%
+  dplyr::mutate(
+    drop = dplyr::if_else(
+      n_genes == 1 & domain.iE.value > min_sg_ieval | 
+        n_genes == 1 & target.coverage < min_sg_tarcov | 
+        n_genes == 1 & hmm.coverage < min_sg_hmmcov |
+        n_genes > 1 & domain.iE.value > min_mg_ieval | 
+        n_genes > 1 & target.coverage < min_mg_tarcov | 
+        n_genes > 1 & hmm.coverage < min_mg_hmmcov,
+      TRUE, FALSE
+    )
+  ) %>%
+  dplyr::filter(drop == FALSE) %>%
+  dplyr::mutate(n_genes_post = dplyr::n(), .by = system_id) %>%
+  dplyr::filter(n_genes == n_genes_post) %>%
+  dplyr::filter(genome.accession %in% sampled_genomes)
+
+padlocout_master_w_hecs <- padlocout_master_sampled %>% 
+  dplyr::filter(stringr::str_detect(system, "HEC-", negate = TRUE)) %>%
+  dplyr::bind_rows(padlocout_hecs_filtered)
+
+```
+
+```{r}
+
+# Reduce loci to just include system genes and embedded genes
+loci_00_sampled <- reduce_loci(loci_03_combined_no_pseudo, 3) %>%
+  dplyr::right_join(sampled_loci, multiple = "all")
+
+# Filter for embedded genes and select relevant columns
+tmp <- loci_00_sampled %>%
+  dplyr::mutate(embedded = dplyr::if_else(is.na(target.name), TRUE, FALSE)) %>%
+  dplyr::filter(embedded == TRUE) %>%
+  gff_separate_attributes(keep = "Name") %>%
+  dplyr::rename(hostsys = system) %>%
+  dplyr::select(genome.accession, seqid, relative.position, Name, embedded, hostsys)
+
+# Join data for all other systems
+tmp2 <- tmp %>%
+  dplyr::left_join(padlocout_master_w_hecs, by = dplyr::join_by(genome.accession, seqid, relative.position))
+
+tmp3 <- tmp2 %>%
+  # dplyr::filter(!is.na(system)) %>%
+  # group_by_position(col = relative.position, n = 1, name = "locus_id", .by = c("genome.accession", "seqid")) #%>%
+  dplyr::mutate(cassette_id = dplyr::cur_group_id(), .by = c("genome.accession", "seqid")) %>%
+  dplyr::mutate(tmp_id = cumsum(c(1, abs(diff(relative.position)) > 1)), .by = c("cassette_id", "system")) %>%
+  dplyr::mutate(tmp2 = dplyr::cur_group_id(), .by = c("genome.accession", "seqid", "cassette_id", "system", "tmp_id")) %>%
+  dplyr::distinct(hostsys, system, tmp2)
+  
+summary <- tmp3 %>% 
+  summarise_n(.by = c("hostsys", "system")) %>% 
+  dplyr::mutate(p = n/sum(n), .by = hostsys) %>%
+  dplyr::arrange(hostsys, desc(n)) %>%
+  dplyr::mutate(key = paste0(system, " ", "(", round(p*100, 1), "%)")) %>%
+  dplyr::mutate(host = paste0(hostsys, " (n = ", prettyNum(sum(n), ","), ")"), .by = hostsys)
+
+order <- summary %>% 
+  dplyr::arrange(hostsys, n, system) %>% 
+  dplyr::pull(system) %>% 
+  unique()
+
+summary %>% 
+  # dplyr::filter(stringr::str_detect(hostsys, "brex")) %>%
+  ggplot(aes(x = "", y = p, fill = factor(system, level = order))) +
+  geom_col(color = "black") +
+  # geom_text(aes(label = n.norm), position = position_stack(vjust = 0.5)) +
+  coord_flip() +
+  theme_void() +
+  # scale_fill_manual(values = sample(colours(), length(summary$system))) +
+  scale_fill_viridis_d(NULL, direction = -1, option = "turbo") +
+  guides(fill = guide_legend(reverse = TRUE, ncol = 8)) +
+  theme(legend.position = "bottom") +
+  facet_grid(rows = "host", scales = "free", space = "free")
+
+
+```
+
+```{r}
+
+# Extract IDs for all uncharacterised proteins.
+uncharacterised_protein_ids <- tmp2 %>% 
+  dplyr::filter(is.na(system)) %>%
+  dplyr::select(Name) %>%
+  dplyr::distinct()
+
+# Write out.
+path_embedded_proteins <- fs::path_join(c(path_wd, "embedded_proteins/bdr_embedded_proteins.txt"))
+readr::write_tsv(uncharacterised_protein_ids, path_embedded_proteins, col_names = FALSE)
+
+# Extract embedded proteins from list of adjacent proteins.
+
+# >>>>> {sh} >>>>>
+# cd /mnt/d/payle484/embedded_sys
+# conda activate seqkit
+# seqkit grep -f embedded_proteins/bdr_embedded_proteins.txt adjacent_proteins/bdr_adjacent_proteins.faa > embedded_proteins/bdr_embedded_proteins.faa
+# <<<<< {sh} <<<<<
+
+# Cluster w/ mmseqs & hhsearch
+
+
+hhcat_path <- fs::path_join(c(path_wd, "bdr_all_vs_all_hma_embedded/hhsearch_out/bdr_embedded_all_vs_all.hhcat"))
+hhcat <- read_hhcat(hhcat_path)
+hhcat_proc <- hhcat_process(hhcat)
+hhcat_filt <- hhcat_filter(hhcat_proc, probability = 70, match_coverage = 70, query_coverage = 70)
+hhcat_graph <- hhcat_graph(hhcat_filt)
+
+second_order_clusters <- hhcat_graph %>% 
+  dplyr::mutate(cluster = tidygraph::group_components(type = "weak")) %>%
+  tidygraph::activate(nodes) %>%
+  tibble::as_tibble() %>%
+  dplyr::rename(clu_representative = cluster, clu_member = name)
+
+path_embedded_mmseqs_clusters <- fs::path_join(c(path_wd, "mmseqs_cluster_bdr_embedded/results/clusters/bdr_embedded/bdr_embedded.tsv"))
+first_order_clusters <- read_mmseqs_cluster_tsv(path_embedded_mmseqs_clusters)
+
+extended_clusters <- extend_clusters(first_order_clusters, second_order_clusters)
+
+# Number of protein families
+extended_clusters %>% dplyr::distinct(clu_ord_2) %>% nrow()
+
+cluster_key_path <- fs::path_join(c(path_wd, "bdr_all_vs_all_hma_embedded/cluster_key.txt"))
+readr::write_tsv(extended_clusters, cluster_key_path, col_names = FALSE)
+
+
+
+
+
+bdr_embedded_genes_attr_no_pseudo <- loci_00_sampled %>%
+  dplyr::filter(is.na(target.name)) %>%
+  gff_separate_attributes(keep = "Name") %>%
+  dplyr::filter(!is.na(Name) & !stringr::str_detect(Name, "^pseudo_sub*"))
+
+
+
+bdr_uncharacterised_cassettes <- bdr_embedded_genes_attr_no_pseudo %>%
+  dplyr::select(genome.accession, seqid, strand, relative.position, Name) %>%
+  dplyr::left_join(padlocout_master_w_hecs, by = dplyr::join_by(genome.accession, seqid, strand, relative.position)) %>%
+  dplyr::left_join(extended_clusters, by = dplyr::join_by(Name == clu_member)) %>%
+  dplyr::filter(!is.na(clu_ord_2)) %>%
+  group_by_position(col = relative.position, n = 1, name = "cassette_id", .by = c("seqid")) %>%
+  dplyr::select(genome.accession, seqid, relative.position, Name, strand, clu_ord_1, clu_ord_2, cassette_id) %>%
+  dplyr::mutate(cassette_id_unq = dplyr::cur_group_id(), .by = c(seqid, cassette_id)) %>%
+  dplyr::mutate(flip = dplyr::if_else(any(strand == "-"), TRUE, FALSE), .by = cassette_id_unq) %>%
+  dplyr::mutate(order = dplyr::if_else(flip == TRUE, dplyr::row_number(), - dplyr::row_number()), .by = cassette_id_unq) %>%
+  dplyr::arrange(order) %>%
+  dplyr::mutate(family = paste0("FAM_", stringr::str_pad(clu_ord_2, width = 5, pad = "0"))) %>%
+  dplyr::mutate(cassette = paste0(family, collapse = ">>"), .by = cassette_id_unq) %>%
+  tidyr::nest(.by = c(cassette_id_unq, cassette)) %>%
+  dplyr::mutate(n = dplyr::n(), .by = cassette) %>%
+  tidyr::nest(.by = c(cassette, n)) %>%
+  dplyr::arrange(desc(n)) %>%
+  dplyr::mutate(ngenes = stringr::str_count(cassette, ">>") + 1)
+
+combined_count <- bdr_uncharacterised_cassettes %>%
+  dplyr::select(-data) %>%
+  dplyr::rename(system = cassette) %>%
+  dplyr::mutate(known = NA) %>%
+  dplyr::bind_rows(tmp3 %>% summarise_n(.by = "system") %>% dplyr::filter(!is.na(system)) %>% dplyr::select(system, n) %>% dplyr::mutate(known = system)) %>%
+  dplyr::arrange(desc(n)) %>%
+  dplyr::mutate(p = n/sum(n))
+
+order <- combined_count %>% 
+  dplyr::arrange(desc(n)) %>% 
+  dplyr::pull(system)
+
+p1 <- combined_count %>%
+  dplyr::slice_head(n = 100) %>%
+  # dplyr::filter(n > 10) %>%
+  # dplyr::mutate(p = dplyr::if_else(p < 0.01, 0.01, p)) %>%
+  # dplyr::filter(stringr::str_detect(hostsys, "brex")) %>%
+  ggplot(aes(x = factor(system, order), y = n, fill = as.character(ngenes))) +
+  geom_col(color = "black") +
+  # geom_col() +
+  # geom_text(aes(label = n.norm), position = position_stack(vjust = 0.5)) +
+  # coord_flip() +
+  # theme_void() +
+  theme_classic() +
+  # scale_fill_manual(values = c("white", "grey30")) +
+  # scale_fill_viridis_d(NULL, direction = -1, option = "viridis") +
+  guides(fill = guide_legend(reverse = TRUE, ncol = 8)) +
+  theme(legend.position = "bottom")
+
+p1
+
+
+
+bdr_uncharacterised_cassettes %>% 
+  dplyr::summarise(n = dplyr::n(), .by = ngenes) %>%
+  ggplot(aes(x = ngenes, y = n)) +
+  geom_col(color = "black") +
+  theme_classic()
+
+
+
+embedded_desc <- loci_00_sampled %>%
+  dplyr::mutate(embedded = dplyr::if_else(is.na(target.name), TRUE, FALSE)) %>%
+  dplyr::filter(embedded == TRUE) %>%
+  gff_separate_attributes() %>%
+  dplyr::left_join()
+
+
+
+
+hmm_protein_key <- extended_clusters %>% 
+  dplyr::mutate(cluster = paste0("FAM_", stringr::str_pad(clu_ord_2, width = 5, pad = "0"))) %>%
+  dplyr::distinct(cluster, clu_ord_1) %>%
+  dplyr::rename(hmm.name = clu_ord_1, protein.name = cluster)
+
+candidate_system_metamodel <- list(
+  bdr_meta = list(
+    maximum_separation = 0,
+    minimum_core = 1,
+    minimum_total = 1,
+    core_genes = hmm_protein_key %>% dplyr::distinct(protein.name) %>% dplyr::pull(),
+    optional_genes = NA,
+    prohibited_genes = NA
+  )
+)
+
+candidate_system_sys_meta <- padlocdev::build_generic_sys_meta(candidate_system_metamodel)
+
+candidate_system_hmm_meta <- hmm_protein_key %>%
+  padlocdev::build_generic_hmm_meta() %>%
+  dplyr::mutate(
+    e.val.threshold = 1e-20, 
+    hmm.coverage.threshold = 0.7, 
+    target.coverage.threshold = 0.7
+  )
+
+candidate_system_sys_models_path <- fs::path_join(c(path_wd, "embedded_candidates_bdr_padlocdb/sys"))
+padlocdev::multi_write_padloc_model(candidate_system_metamodel, candidate_system_sys_models_path)
+
+candidate_system_sys_meta_path <- fs::path_join(c(path_wd, "embedded_candidates_bdr_padlocdb/sys_meta.txt"))
+readr::write_tsv(candidate_system_sys_meta, candidate_system_sys_meta_path)
+
+candidate_system_hmm_meta_path <- fs::path_join(c(path_wd, "embedded_candidates_bdr_padlocdb/hmm_meta.txt"))
+readr::write_tsv(candidate_system_hmm_meta, candidate_system_hmm_meta_path)
+
+```
+

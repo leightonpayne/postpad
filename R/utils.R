@@ -69,7 +69,8 @@ mutate_cur_group_id <- function(.data,
   out <- dplyr::mutate(
     .data = .data,
     {{name}} := dplyr::cur_group_id(),
-    .by = .by, .keep = .keep
+    .by = .by,
+    .keep = .keep
   )
   out
 }
@@ -80,6 +81,7 @@ mutate_system_id <- function(padlocout, name = "system_id") {
   padlocout_ids <- mutate_cur_group_id(
     padlocout, name = {{ name }}, .by = system_id_group
   )
+  padlocout_ids
 }
 
 #' @export

@@ -2603,7 +2603,224 @@ filtered %>%
 
 ```
 
+```{r}
+# CALCULATE DEFENCE-ICITY SCORES FOR HECS
 
+padlocout_master_and_hecs <-
+  dplyr::bind_rows(padlocout_master, padlocout_hecs_filtered_2)
+
+padlocout_master_and_hecs_has_pseudo <- dplyr::mutate(
+  padlocout_master_and_hecs,
+  has_pseudo = dplyr::if_else(
+    stringr::str_detect(target.name, "^pseudo_sub*"), TRUE, FALSE
+  )
+)
+
+padlocout_master_and_hecs_no_pseudo <- dplyr::filter(
+  padlocout_master_and_hecs_has_pseudo,
+  all(has_pseudo == FALSE),
+  .by = c(seqid, system, system.number)
+)
+
+padlocout_master_and_hecs_no_overlaps <- padlocout_resolve_overlaps(padlocout_master_and_hecs_no_pseudo)
+
+padlocout_mhec_system_limits <- add_group_limits(
+  padlocout_master_and_hecs_no_overlaps, 
+  relative.position, 
+  relative.position, 
+  .by = c("genome.accession", "seqid", "system.number", "system")
+)
+
+padlocout_mhec_islands_positions <- group_by_distance(
+  padlocout_mhec_system_limits, 
+  min_system_relative.position,
+  max_system_relative.position, 
+  n = 5, 
+  name = "island", 
+  .by = c("genome.accession", "seqid")
+)
+
+padlocout_mhec_islands_nested <- tidyr::nest(
+  padlocout_mhec_islands_positions, 
+  .by = c("genome.accession", "seqid", "island", "system", "system.number")
+)
+
+padlocout_mhec_islands_hec <- dplyr::filter(
+  padlocout_mhec_islands_nested, 
+  any(stringr::str_detect(system, "^CAND")), 
+  .by = c(genome.accession, seqid, island)
+) 
+
+
+islands_mhec_unnested <- 
+  tidyr::unnest(padlocout_mhec_islands_hec, data)
+
+tmp <- islands_mhec_unnested %>%
+  # group_by_position(col = relative.position, n = 1, name = "tmp", .by = c("genome.accession", "seqid", "system.number", "system")) %>%
+  dplyr::mutate(
+    hec_in_island = dplyr::if_else(any(stringr::str_detect(system, "^CAND", negate = TRUE)), TRUE, FALSE),
+    .by = c("genome.accession", "seqid", "island") 
+  )
+
+tmp2 <- tmp %>%
+  tidyr::nest(.by = c("genome.accession", "seqid", "island", "system", "hec_in_island")) %>%
+  dplyr::filter(stringr::str_detect(system, "^CAND"))
+
+cand_filt <- padlocout_hecs_tested %>% 
+  dplyr::select(candidate, system) %>% 
+  dplyr::distinct() %>% 
+  dplyr::filter(stringr::str_detect(candidate, "HEC-05|HEC-06|HEC-07", negate = TRUE)) %>%
+  dplyr::bind_rows(tibble::tibble(candidate = "HEC-05/HEC-06", system = "CAND_00001"))
+
+summary <- tmp2 %>%
+  # dplyr::summarise(n = dplyr::n(), .by = c("system", "hec_in_island")) %>%
+  summarise_n(.by = c("system", "hec_in_island")) %>%
+  dplyr::mutate(proportion = n/sum(n), .by = system) %>%
+  dplyr::left_join(cand_filt, by = dplyr::join_by(system)) %>%
+  dplyr::arrange(desc(n), desc(hec_in_island)) %>%
+  dplyr::filter(hec_in_island == TRUE)
+  
+  # dplyr::filter(!is.na(candidate))
+
+summary
+
+
+
+
+
+
+result <- purrr::map(.x = range, .f = function(i) {
+  
+  # Filter for relevant genomes
+  padlocout_system_limits <- add_group_limits(
+    padlocout_master_and_hecs_no_overlaps, 
+    relative.position, 
+    relative.position, 
+    .by = c("genome.accession", "seqid", "system.number", "system")
+  )
+  
+  # Find islands
+  # ~ 60s
+  padlocout_islands_positions <- group_by_distance(
+    padlocout_system_limits, 
+    min_system_relative.position,
+    max_system_relative.position, 
+    n = i, 
+    name = "island", 
+    .by = c("genome.accession", "seqid")
+  )
+  
+  padlocout_islands_nested <- tidyr::nest(
+    padlocout_islands_positions, 
+    .by = c("genome.accession", "seqid", "island", "system", "system.number")
+  )
+  
+  # Filter for islands with hma
+  padlocout_islands_hec <- dplyr::filter(
+    padlocout_islands_nested, 
+    any(stringr::str_detect(system, "^CAND")), 
+    .by = c(genome.accession, seqid, island)
+  ) 
+  
+  islands_hec_unnested <- 
+    tidyr::unnest(padlocout_islands_hec, data)
+  
+  tmp <- islands_hec_unnested %>%
+    group_by_position(
+      col = relative.position,
+      n = 1,
+      name = "tmp",
+      .by = c("genome.accession", "seqid", "system.number", "system")
+    ) %>%
+    dplyr::left_join(
+      hma_embedded_positions, 
+      by = dplyr::join_by(genome.accession, seqid, relative.position)
+    ) %>%
+    dplyr::mutate(
+      hma_w_embedded = dplyr::if_else(system == "hma" & max(tmp) > 1, TRUE, FALSE),
+      .by = c("genome.accession", "seqid", "system.number", "system")
+    ) %>%
+    dplyr::mutate(
+      hma_w_embedded = dplyr::if_else(any(hma_w_embedded == TRUE), TRUE, FALSE),
+      hma_in_island = dplyr::if_else(any(system != "hma" & is.na(embedded_in_hma)), TRUE, FALSE),
+      .by = c("genome.accession", "seqid", "island") 
+    )
+  
+  tmp2 <- tmp %>%
+    tidyr::nest(.by = c("genome.accession", "seqid", "island", "hma_w_embedded", "hma_in_island"))
+  
+  summary <- tmp2 %>%
+    dplyr::summarise(n = dplyr::n(), .by = c("hma_w_embedded", "hma_in_island"))
+  
+  summary
+  
+}, .progress = TRUE)
+
+result_bound <- purrr::imap(result, function(x, idx) dplyr::mutate(x, i = (idx - 1))) %>% dplyr::bind_rows()
+
+result_bound_2 <- result_bound %>% dplyr::mutate(
+  col1 = dplyr::if_else(hma_w_embedded, "w_embedded_genes", "wo_embedded_genes"),
+  col2 = dplyr::if_else(hma_in_island, "in_island", "in_isolation")
+)
+
+df <- tibble::tibble(
+  col1 = c(TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE),
+  col2 = c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE, TRUE, FALSE),
+  n = c(315, 131, 416, 608, 328, 148, 399, 595),
+  i = c(1, 1, 1, 1, 2, 2, 2, 2)
+)
+
+result_bound_2 %>%
+  ggplot2::ggplot(ggplot2::aes(x = factor(i), y = n)) +
+  ggplot2::geom_bar(stat = "identity") +
+  ggplot2::facet_grid(col1 ~ col2) +
+  ggplot2::labs(x = "Island limits (no. of genes either side of Hma)", y = "Count") +
+  ggplot2::theme_minimal()
+
+result_bound_2 %>%
+  
+  dplyr::mutate(
+    col_comb = factor(glue::glue("{col2}_{col1}")),
+    order = stats::ave(n, col_comb, FUN = seq_along)
+  ) %>%
+  
+  # dplyr::filter(
+  #   dplyr::between(i, 1, 30)
+  # ) %>%
+  
+  ggplot(., aes(x = as.factor(i), y = n, fill = col_comb)) +
+  geom_bar(stat = "identity", position = "stack", alpha = 1, width = 1) +
+  scale_fill_viridis_d(option = "mako", begin = 0.25, end = 1) +
+  labs(x = "Island limits (no. of genes either side of Hma)", y = "Count", fill = "col_comb") +
+  # facet_grid(~col1) +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+  ) +
+  theme_minimal() #+
+  # guides(fill = FALSE)
+
+# path_plot <- fs::path_join(c(path_wd, "pdf/F1_island_analysis.pdf"))
+# ggsave(path_plot, width = 79.6, height = 79.6, units = "mm")
+
+# Proportion of Hma systems in isolation
+result_bound_2 %>% 
+  dplyr::filter(i == 25) %>% 
+  dplyr::mutate(proportion = n/sum(n)) %>% 
+  dplyr::filter(col2 == "in_isolation") %>%
+  dplyr::summarise(n = sum(n), proportion = sum(proportion)) %>%
+  dplyr::pull(proportion)
+
+# Proportion of Hma systems in isolation, that also have embedded genes
+result_bound_2 %>% 
+  dplyr::filter(i == 25) %>% 
+  dplyr::filter(col2 == "in_isolation") %>%
+  dplyr::mutate(proportion = n/sum(n)) %>%
+  dplyr::filter(col1 == "w_embedded_genes") %>%
+  dplyr::pull(proportion)
+
+#### KNOWN SYSTEMS EMBEDDED
+
+```
 
 
 

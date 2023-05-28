@@ -44,6 +44,7 @@ Collate:
     'legacy.R'
     'loci-combine.R'
     'loci-tbl-nest-structure.R'
+    'padlocout-filter-embedded.R'
     'padlocout-resolve-overlaps.R'
     'postpad-package.R'
     'read-cath.R'
